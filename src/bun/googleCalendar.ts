@@ -75,6 +75,19 @@ interface GoogleCalendarListEntry {
 	deleted?: boolean;
 }
 
+function googleCalendarApiError(status: number, bodyText: string): Error {
+	if (
+		status === 403 &&
+		(bodyText.includes("insufficient") ||
+			bodyText.includes("ACCESS_TOKEN_SCOPE_INSUFFICIENT"))
+	) {
+		return new Error(
+			"Permissão do Google Agenda insuficiente. Em Configurações: Desconectar → Conectar de novo (o escopo calendar.readonly precisa estar na tela de consentimento do Google Cloud).",
+		);
+	}
+	return new Error(`Google Agenda (${status}): ${bodyText.slice(0, 180)}`);
+}
+
 export async function fetchAccessibleGoogleCalendars(
 	accessToken: string,
 ): Promise<GoogleCalendarListEntry[]> {
@@ -92,7 +105,7 @@ export async function fetchAccessibleGoogleCalendars(
 		);
 		if (!res.ok) {
 			const text = await res.text();
-			throw new Error(`Calendar list ${res.status}: ${text.slice(0, 200)}`);
+			throw googleCalendarApiError(res.status, text);
 		}
 		const json = (await res.json()) as {
 			items?: GoogleCalendarListEntry[];
@@ -128,9 +141,7 @@ async function fetchGoogleEventsForCalendar(
 		);
 		if (!res.ok) {
 			const text = await res.text();
-			throw new Error(
-				`Calendar API ${res.status} (${calendarId}): ${text.slice(0, 160)}`,
-			);
+			throw googleCalendarApiError(res.status, text);
 		}
 		const json = (await res.json()) as {
 			items?: GoogleCalendarEventItem[];
