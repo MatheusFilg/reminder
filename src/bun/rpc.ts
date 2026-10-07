@@ -23,9 +23,9 @@ import {
 	snoozeReminder,
 	updateReminder,
 	upsertImportedEventsDb,
-	dismissImportedSimilar as dismissImportedSimilarDb,
-	listImportedIgnoreRules as listImportedIgnoreRulesDb,
-	removeImportedIgnoreRule as removeImportedIgnoreRuleDb,
+	dismissImportedSimilarDb,
+	listImportedIgnoreRulesDb,
+	removeImportedIgnoreRuleDb,
 } from "./db";
 import { ICS_IMPORT_WINDOW_DAYS } from "./ics";
 import { prepareIcsImport } from "./icsImport";
