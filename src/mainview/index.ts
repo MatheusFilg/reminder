@@ -770,7 +770,7 @@ function render() {
         <button class="icon-btn ${state.view === "settings" ? "on" : ""}" id="settings-btn" title="Configurações">${icon("settings")}</button>
       </div>
     </header>
-    ${state.view === "settings" ? renderSettings() : renderList()}
+    ${state.view === "settings" ? `<div class="content content-settings">${renderSettings()}</div>` : renderList()}
     ${state.view === "settings" ? "" : `<footer class="footer"><span>${state.items.length} lembrete(s)</span></footer>`}
   `;
 
