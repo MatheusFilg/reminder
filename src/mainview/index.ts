@@ -716,7 +716,7 @@ function renderSettings() {
       <div class="setting-card setting-card-column">
         <span class="setting-copy">
           <span class="setting-title">Google Agenda</span>
-          <span class="setting-hint">Calendário principal da conta, somente leitura (~90 dias). Tokens ficam só neste computador.</span>
+          <span class="setting-hint">Todas as agendas visíveis da conta (leitura, ~90 dias). Tokens ficam só neste computador.</span>
         </span>
         ${
 					!g?.configured

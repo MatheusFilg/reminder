@@ -26,7 +26,14 @@ function syncWindow(now: Date, missedHours: number) {
 	return { from, to, fromIso: from.toISOString(), toIso: to.toISOString() };
 }
 
-export function googleEventToUpsert(ev: GoogleCalendarEventItem): UpsertImportedInput | null {
+export function googleImportedExternalId(calendarId: string, eventId: string): string {
+	return `${calendarId}::${eventId}`;
+}
+
+export function googleEventToUpsert(
+	ev: GoogleCalendarEventItem,
+	calendarId?: string,
+): UpsertImportedInput | null {
 	if (!ev.id || ev.status === "cancelled") return null;
 	const start = ev.start;
 	if (!start) return null;
@@ -49,7 +56,9 @@ export function googleEventToUpsert(ev: GoogleCalendarEventItem): UpsertImported
 		return null;
 	}
 	return {
-		externalId: ev.id,
+		externalId: calendarId
+			? googleImportedExternalId(calendarId, ev.id)
+			: ev.id,
 		summary: ev.summary?.trim() || "(Sem título)",
 		description: ev.description?.trim() ?? "",
 		startsAt,
@@ -59,8 +68,45 @@ export function googleEventToUpsert(ev: GoogleCalendarEventItem): UpsertImported
 	};
 }
 
-async function fetchAllGoogleEvents(
+interface GoogleCalendarListEntry {
+	id: string;
+	summary?: string;
+	hidden?: boolean;
+	deleted?: boolean;
+}
+
+export async function fetchAccessibleGoogleCalendars(
 	accessToken: string,
+): Promise<GoogleCalendarListEntry[]> {
+	const items: GoogleCalendarListEntry[] = [];
+	let pageToken: string | undefined;
+	do {
+		const params = new URLSearchParams({
+			minAccessRole: "reader",
+			maxResults: "250",
+		});
+		if (pageToken) params.set("pageToken", pageToken);
+		const res = await fetch(
+			`https://www.googleapis.com/calendar/v3/users/me/calendarList?${params}`,
+			{ headers: { Authorization: `Bearer ${accessToken}` } },
+		);
+		if (!res.ok) {
+			const text = await res.text();
+			throw new Error(`Calendar list ${res.status}: ${text.slice(0, 200)}`);
+		}
+		const json = (await res.json()) as {
+			items?: GoogleCalendarListEntry[];
+			nextPageToken?: string;
+		};
+		items.push(...(json.items ?? []));
+		pageToken = json.nextPageToken;
+	} while (pageToken);
+	return items.filter((c) => c.id && !c.deleted && !c.hidden);
+}
+
+async function fetchGoogleEventsForCalendar(
+	accessToken: string,
+	calendarId: string,
 	timeMin: string,
 	timeMax: string,
 ): Promise<GoogleCalendarEventItem[]> {
@@ -75,13 +121,16 @@ async function fetchAllGoogleEvents(
 			maxResults: "250",
 		});
 		if (pageToken) params.set("pageToken", pageToken);
+		const encodedId = encodeURIComponent(calendarId);
 		const res = await fetch(
-			`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
+			`https://www.googleapis.com/calendar/v3/calendars/${encodedId}/events?${params}`,
 			{ headers: { Authorization: `Bearer ${accessToken}` } },
 		);
 		if (!res.ok) {
 			const text = await res.text();
-			throw new Error(`Calendar API ${res.status}: ${text.slice(0, 200)}`);
+			throw new Error(
+				`Calendar API ${res.status} (${calendarId}): ${text.slice(0, 160)}`,
+			);
 		}
 		const json = (await res.json()) as {
 			items?: GoogleCalendarEventItem[];
@@ -123,18 +172,49 @@ export async function syncGoogleCalendarEvents(): Promise<{
 	const { from, to, fromIso, toIso } = syncWindow(now, settings.missedAlertHours);
 
 	try {
-		const raw = await fetchAllGoogleEvents(
-			accessToken,
-			from.toISOString(),
-			to.toISOString(),
-		);
+		const timeMin = from.toISOString();
+		const timeMax = to.toISOString();
+		const calendars = await fetchAccessibleGoogleCalendars(accessToken);
+		if (calendars.length === 0) {
+			return { imported: 0, error: "Nenhuma agenda Google acessível nesta conta." };
+		}
+
 		const upserts: UpsertImportedInput[] = [];
 		const ids = new Set<string>();
-		for (const ev of raw) {
-			const mapped = googleEventToUpsert(ev);
-			if (!mapped) continue;
-			ids.add(mapped.externalId);
-			upserts.push(mapped);
+		const errors: string[] = [];
+
+		for (const cal of calendars) {
+			try {
+				const raw = await fetchGoogleEventsForCalendar(
+					accessToken,
+					cal.id,
+					timeMin,
+					timeMax,
+				);
+				const calLabel = cal.summary?.trim();
+				for (const ev of raw) {
+					const mapped = googleEventToUpsert(ev, cal.id);
+					if (!mapped) continue;
+					if (calLabel && calendars.length > 1) {
+						const title = mapped.summary;
+						if (!title.startsWith(`${calLabel}:`)) {
+							mapped.summary = `${calLabel}: ${title}`;
+						}
+					}
+					ids.add(mapped.externalId);
+					upserts.push(mapped);
+				}
+			} catch (e) {
+				const message = e instanceof Error ? e.message : String(e);
+				errors.push(message);
+			}
+		}
+
+		if (upserts.length === 0 && errors.length === calendars.length) {
+			return {
+				imported: 0,
+				error: errors[0] ?? "Não foi possível ler eventos das agendas.",
+			};
 		}
 		const { imported, updated } = upsertImportedEvents(db, upserts);
 		pruneGoogleEventsNotInSet(ids, fromIso, toIso);
