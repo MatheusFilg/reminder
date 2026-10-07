@@ -75,12 +75,17 @@ interface GoogleCalendarListEntry {
 	deleted?: boolean;
 }
 
+export function isGoogleCalendarScopeError(message: string): boolean {
+	const m = message.toLowerCase();
+	return (
+		m.includes("permissão do google agenda insuficiente") ||
+		m.includes("insufficient authentication scopes") ||
+		m.includes("access_token_scope_insufficient")
+	);
+}
+
 function googleCalendarApiError(status: number, bodyText: string): Error {
-	if (
-		status === 403 &&
-		(bodyText.includes("insufficient") ||
-			bodyText.includes("ACCESS_TOKEN_SCOPE_INSUFFICIENT"))
-	) {
+	if (status === 403 && isGoogleCalendarScopeError(bodyText)) {
 		return new Error(
 			"Permissão do Google Agenda insuficiente. Em Configurações: Desconectar → Conectar de novo (o escopo calendar.readonly precisa estar na tela de consentimento do Google Cloud).",
 		);
@@ -234,6 +239,13 @@ export async function syncGoogleCalendarEvents(): Promise<{
 		return { imported: imported + updated };
 	} catch (e) {
 		const message = e instanceof Error ? e.message : String(e);
+		if (isGoogleCalendarScopeError(message)) {
+			clearGoogleAuthStored();
+			return {
+				imported: 0,
+				error: `${message} Tokens antigos foram removidos — use Conectar Google de novo.`,
+			};
+		}
 		return { imported: 0, error: message };
 	}
 }

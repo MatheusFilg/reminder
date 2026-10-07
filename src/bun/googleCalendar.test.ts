@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	googleEventToUpsert,
 	googleImportedExternalId,
+	isGoogleCalendarScopeError,
 } from "./googleCalendar";
 
 describe("googleCalendar", () => {
@@ -43,5 +44,14 @@ describe("googleCalendar", () => {
 		expect(
 			googleEventToUpsert({ id: "x", status: "cancelled", start: { date: "2026-04-15" } }),
 		).toBeNull();
+	});
+
+	test("detects insufficient scope errors", () => {
+		expect(
+			isGoogleCalendarScopeError(
+				'Request had insufficient authentication scopes.',
+			),
+		).toBe(true);
+		expect(isGoogleCalendarScopeError("HTTP 500")).toBe(false);
 	});
 });
