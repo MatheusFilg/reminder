@@ -464,6 +464,55 @@ label.setting-card {
 	flex-wrap: wrap;
 	gap: 8px;
 	margin-top: 4px;
+	align-items: center;
+}
+
+.google-icon-btn {
+	width: 40px;
+	height: 40px;
+	padding: 0;
+	border-radius: 10px;
+	border: 1px solid var(--border);
+	background: var(--surface);
+	color: var(--text);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+
+.google-icon-btn:hover:not(:disabled) {
+	background: var(--surface-2);
+}
+
+.google-icon-btn:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.google-icon-btn-primary {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: var(--on-accent);
+}
+
+.google-icon-btn-primary:hover:not(:disabled) {
+	background: var(--accent-hover);
+	border-color: var(--accent-hover);
+}
+
+.google-icon-btn-primary .icon-google {
+	filter: drop-shadow(0 0 0.5px rgba(0, 0, 0 / 0.15));
+}
+
+.google-icon-btn-danger {
+	color: var(--danger);
+	border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+}
+
+.google-icon-btn-danger:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--danger) 10%, transparent);
 }
 
 .google-account {

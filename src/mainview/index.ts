@@ -265,10 +265,21 @@ const ICONS: Record<string, string> = {
 	arrowLeft: `<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>`,
 	chevronRight: `<path d="m9 18 6-6-6-6"/>`,
 	eyeOff: `<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>`,
+	refreshCw: `<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>`,
+	unlink: `<path d="m18.84 12.25-6.15 6.15"/><path d="m5.16 5.16 6.15 6.15"/><path d="M8.12 8.12A5 5 0 0 1 12 12h0a5 5 0 0 1 5 5v0"/><path d="M15.88 15.88A5 5 0 0 1 12 12h0a5 5 0 0 1-5-5v0"/>`,
 };
 
 function icon(name: keyof typeof ICONS, size = 18) {
 	return `<svg class="lucide" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
+}
+
+function iconGoogle(size = 20) {
+	return `<svg class="icon-google" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+  </svg>`;
 }
 
 const MONTH_LABELS = [
@@ -941,9 +952,9 @@ function renderSettingsCalendars() {
 							: `<p class="setting-hint">Nenhuma conta conectada.</p>`
 				}
         <div class="google-actions">
-          <button type="button" class="btn btn-primary" id="google-connect" ${!g?.configured || g?.connected ? "disabled" : ""}>Conectar Google</button>
-          <button type="button" class="btn" id="google-sync" ${!g?.connected ? "disabled" : ""}>Sincronizar agora</button>
-          <button type="button" class="btn btn-danger" id="google-disconnect" ${!g?.connected ? "disabled" : ""}>Desconectar</button>
+          <button type="button" class="google-icon-btn google-icon-btn-primary" id="google-connect" title="Conectar Google" aria-label="Conectar Google" ${!g?.configured || g?.connected ? "disabled" : ""}>${iconGoogle(20)}</button>
+          <button type="button" class="google-icon-btn" id="google-sync" title="Sincronizar agora" aria-label="Sincronizar agora" ${!g?.connected ? "disabled" : ""}>${icon("refreshCw", 18)}</button>
+          <button type="button" class="google-icon-btn google-icon-btn-danger" id="google-disconnect" title="Desconectar" aria-label="Desconectar conta Google" ${!g?.connected ? "disabled" : ""}>${icon("unlink", 18)}</button>
         </div>
         <p class="import-status" id="google-status" hidden></p>
       </div>
