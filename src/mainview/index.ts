@@ -33,6 +33,12 @@ interface ReminderInput {
 
 type ThemeMode = "system" | "light" | "dark";
 type ThemePackId = "default" | "paradox";
+type SettingsSection =
+	| null
+	| "general"
+	| "appearance"
+	| "calendars"
+	| "notifications";
 
 interface AppSettings {
 	autostart: boolean;
@@ -169,6 +175,7 @@ const modalRoot = document.getElementById("modal-root")!;
 
 const state = {
 	view: "list" as "list" | "settings",
+	settingsSection: null as SettingsSection,
 	filter: "active" as ReminderFilter,
 	search: "",
 	items: [] as ReminderListItem[],
@@ -201,7 +208,10 @@ const rpc = Electroview.defineRPC<ReminderRPC>({
 				}
 				void refresh();
 				if (reason === "open-create") openModal("create");
-				if (reason === "open-settings") state.view = "settings";
+				if (reason === "open-settings") {
+					state.view = "settings";
+					state.settingsSection = null;
+				}
 			},
 		},
 	},
@@ -220,6 +230,7 @@ const ICONS: Record<string, string> = {
 	bellOff: `<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M17 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6 6 0 0 1 .258-1.742"/><path d="m2 2 20 20"/><path d="M8.668 3.01A6 6 0 0 1 18 8c0 .637-.12 1.231-.322 1.746"/>`,
 	pin: `<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16h14v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>`,
 	arrowLeft: `<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>`,
+	chevronRight: `<path d="m9 18 6-6-6-6"/>`,
 	eyeOff: `<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>`,
 };
 
@@ -744,22 +755,46 @@ function formatGoogleSyncLabel(iso: string | null) {
 	}
 }
 
-function renderSettings() {
-	const s = state.settings;
+function themeModeLabel(theme: ThemeMode) {
+	if (theme === "light") return "Claro";
+	if (theme === "dark") return "Escuro";
+	return "Sistema";
+}
+
+function googleCalendarHubSubtitle(g: GoogleCalendarStatus | null) {
+	if (!g?.configured) return "OAuth não configurado";
+	if (g.connected) return g.email ?? "Conta conectada";
+	return "Nenhuma conta conectada";
+}
+
+function settingsHubRow(
+	section: Exclude<SettingsSection, null>,
+	title: string,
+	subtitle: string,
+	badge?: number,
+) {
+	const badgeHtml =
+		badge && badge > 0
+			? `<span class="settings-hub-badge" aria-label="${badge} oculto(s)">${badge}</span>`
+			: "";
+	return `<button type="button" class="settings-hub-row" data-settings-section="${section}">
+      <span class="setting-copy">
+        <span class="setting-title">${escapeHtml(title)}</span>
+        <span class="setting-hint">${escapeHtml(subtitle)}</span>
+      </span>
+      <span class="settings-hub-row-trail">
+        ${badgeHtml}
+        <span class="settings-hub-chevron">${icon("chevronRight", 18)}</span>
+      </span>
+    </button>`;
+}
+
+function renderSettingsHub(s: AppSettings) {
 	const g = state.googleCalendar;
-	if (!s) return "";
+	const hiddenCount = state.importedIgnoreRules.length;
+	const appearanceSub = `${themeModeLabel(s.theme)}${s.themePack === "paradox" ? " · violeta" : ""}`;
 	return `
-    <div class="settings">
-      <label class="setting-card" for="autostart">
-        <span class="setting-copy">
-          <span class="setting-title">Iniciar com o sistema</span>
-          <span class="setting-hint">Abre o Reminder ao ligar o computador</span>
-        </span>
-        <span class="toggle">
-          <input type="checkbox" id="autostart" ${s.autostart ? "checked" : ""} />
-          <span class="toggle-ui" aria-hidden="true"></span>
-        </span>
-      </label>
+    <div class="settings settings-hub">
       <label class="setting-card" for="paused">
         <span class="setting-copy">
           <span class="setting-title">Pausar todos os lembretes</span>
@@ -770,6 +805,31 @@ function renderSettings() {
           <span class="toggle-ui" aria-hidden="true"></span>
         </span>
       </label>
+      <div class="settings-hub-nav">
+        ${settingsHubRow(
+					"notifications",
+					"Notificações",
+					`Avisos perdidos: até ${s.missedAlertHours} h`,
+				)}
+        ${settingsHubRow("appearance", "Aparência", appearanceSub)}
+        ${settingsHubRow(
+					"calendars",
+					"Calendários",
+					googleCalendarHubSubtitle(g),
+					hiddenCount,
+				)}
+        ${settingsHubRow(
+					"general",
+					"Geral",
+					s.autostart ? "Inicia com o sistema" : "Não inicia com o sistema",
+				)}
+      </div>
+    </div>`;
+}
+
+function renderSettingsNotifications(s: AppSettings) {
+	return `
+    <div class="settings">
       <div class="setting-card">
         <span class="setting-copy">
           <span class="setting-title">Avisos perdidos</span>
@@ -782,6 +842,12 @@ function renderSettings() {
           <button type="button" class="stepper-btn" id="missed-inc" aria-label="Aumentar horas">${icon("plus", 14)}</button>
         </div>
       </div>
+    </div>`;
+}
+
+function renderSettingsAppearance(s: AppSettings) {
+	return `
+    <div class="settings">
       <div class="setting-card">
         <span class="setting-copy">
           <span class="setting-title">Aparência</span>
@@ -803,6 +869,31 @@ function renderSettings() {
           <span class="toggle-ui" aria-hidden="true"></span>
         </span>
       </label>
+    </div>`;
+}
+
+function renderSettingsGeneral(s: AppSettings) {
+	return `
+    <div class="settings">
+      <label class="setting-card" for="autostart">
+        <span class="setting-copy">
+          <span class="setting-title">Iniciar com o sistema</span>
+          <span class="setting-hint">Abre o Reminder ao ligar o computador</span>
+        </span>
+        <span class="toggle">
+          <input type="checkbox" id="autostart" ${s.autostart ? "checked" : ""} />
+          <span class="toggle-ui" aria-hidden="true"></span>
+        </span>
+      </label>
+      <p class="setting-about">Reminder v0.1.0</p>
+    </div>`;
+}
+
+function renderSettingsCalendars() {
+	const g = state.googleCalendar;
+	const rules = state.importedIgnoreRules;
+	return `
+    <div class="settings">
       <div class="setting-card setting-card-column">
         <span class="setting-copy">
           <span class="setting-title">Google Agenda</span>
@@ -831,15 +922,15 @@ function renderSettings() {
         <input type="file" id="ics-file" accept=".ics,text/calendar" class="setting-file" />
         <p class="import-status" id="import-status" hidden></p>
       </div>
-      ${
-				state.importedIgnoreRules.length > 0
-					? `<div class="setting-card setting-card-column">
+      <div class="setting-card setting-card-column">
         <span class="setting-copy">
           <span class="setting-title">Importados ocultos</span>
           <span class="setting-hint">Títulos semelhantes não aparecem nem geram aviso após nova sync.</span>
         </span>
-        <ul class="ignore-rules-list">
-          ${state.importedIgnoreRules
+        ${
+					rules.length > 0
+						? `<ul class="ignore-rules-list">
+          ${rules
 						.map(
 							(rule) => `
             <li class="ignore-rule">
@@ -848,13 +939,21 @@ function renderSettings() {
             </li>`,
 						)
 						.join("")}
-        </ul>
-      </div>`
-					: ""
-			}
-      <p class="setting-about">Reminder v0.1.0</p>
-    </div>
-  `;
+        </ul>`
+						: `<p class="settings-empty">Nenhum importado oculto.</p>`
+				}
+      </div>
+    </div>`;
+}
+
+function renderSettings() {
+	const s = state.settings;
+	if (!s) return "";
+	if (state.settingsSection === "notifications") return renderSettingsNotifications(s);
+	if (state.settingsSection === "appearance") return renderSettingsAppearance(s);
+	if (state.settingsSection === "general") return renderSettingsGeneral(s);
+	if (state.settingsSection === "calendars") return renderSettingsCalendars();
+	return renderSettingsHub(s);
 }
 
 function render() {
@@ -901,11 +1000,28 @@ function bindMainEvents() {
 	});
 	document.getElementById("settings-btn")?.addEventListener("click", () => {
 		state.view = "settings";
+		state.settingsSection = null;
 		render();
 	});
 	document.getElementById("back-btn")?.addEventListener("click", () => {
+		if (state.settingsSection) {
+			state.settingsSection = null;
+			render();
+			return;
+		}
 		state.view = "list";
+		state.settingsSection = null;
 		render();
+	});
+
+	document.querySelectorAll("[data-settings-section]").forEach((btn) => {
+		btn.addEventListener("click", () => {
+			const section = btn.getAttribute(
+				"data-settings-section",
+			) as Exclude<SettingsSection, null>;
+			state.settingsSection = section;
+			render();
+		});
 	});
 
 	document.getElementById("search-input")?.addEventListener("input", (e) => {

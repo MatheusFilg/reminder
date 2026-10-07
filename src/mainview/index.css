@@ -361,6 +361,72 @@ body {
 	gap: 8px;
 }
 
+.settings-hub-nav {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 4px;
+}
+
+.settings-hub-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	width: 100%;
+	padding: 14px 16px;
+	border: 1px solid var(--border);
+	border-radius: 14px;
+	background: var(--surface);
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+	transition: background 0.12s ease;
+}
+
+.settings-hub-row:hover {
+	background: color-mix(in srgb, var(--surface) 85%, var(--accent) 15%);
+}
+
+.settings-hub-row:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.settings-hub-row-trail {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
+.settings-hub-chevron {
+	display: flex;
+	color: var(--muted);
+}
+
+.settings-hub-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.35rem;
+	height: 1.35rem;
+	padding: 0 6px;
+	font-size: 0.72rem;
+	font-weight: 700;
+	line-height: 1;
+	color: var(--text);
+	background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+	border-radius: 999px;
+}
+
+.settings-empty {
+	margin: 4px 0 0;
+	font-size: 0.8rem;
+	color: var(--muted);
+}
+
 .setting-card {
 	display: flex;
 	align-items: center;
