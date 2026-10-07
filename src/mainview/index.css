@@ -64,7 +64,8 @@
 	--border: #4c1d95;
 }
 
-:root[data-pack="paradox"][data-theme="light"] {
+:root[data-pack="paradox"][data-theme="light"],
+:root[data-pack="paradox"][data-theme-resolved="light"] {
 	--bg: #f5f3ff;
 	--surface: #ede9fe;
 	--surface-2: #ddd6fe;
@@ -82,7 +83,8 @@
 	}
 }
 
-:root[data-pack="paradox"][data-theme="dark"] {
+:root[data-pack="paradox"][data-theme="dark"],
+:root[data-pack="paradox"][data-theme-resolved="dark"] {
 	--bg: #0f0720;
 	--surface: #1e1035;
 	--surface-2: #2e1065;

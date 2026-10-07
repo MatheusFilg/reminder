@@ -328,10 +328,12 @@ export function createReminderRPC(
 					if (partial.pinned !== undefined) {
 						onPinnedChange?.(next.pinned);
 					}
-					if (partial.theme !== undefined || partial.themePack !== undefined) {
+					const themeTouched =
+						partial.theme !== undefined || partial.themePack !== undefined;
+					if (themeTouched) {
 						onThemeChange?.();
 					}
-					emitChanged("settings");
+					emitChanged(themeTouched ? "theme" : "settings");
 					return next;
 				},
 				getPresets: () => ({

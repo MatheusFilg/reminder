@@ -146,6 +146,7 @@ const rpc = Electroview.defineRPC<ReminderRPC>({
 					void electrobun.rpc!.request.getSettings({}).then((settings) => {
 						state.settings = settings;
 						applyThemeFromSettings(settings);
+						bindSystemThemeListener(settings.theme);
 					});
 					return;
 				}
@@ -412,6 +413,15 @@ function defaultForm(): ReminderInput {
 }
 
 let refreshSeq = 0;
+let systemThemeMedia: MediaQueryList | null = null;
+
+function resolvedThemeMode(theme: ThemeMode): "light" | "dark" {
+	if (theme === "light") return "light";
+	if (theme === "dark") return "dark";
+	return window.matchMedia("(prefers-color-scheme: dark)").matches
+		? "dark"
+		: "light";
+}
 
 function applyThemeFromSettings(settings: AppSettings) {
 	const root = document.documentElement;
@@ -420,10 +430,29 @@ function applyThemeFromSettings(settings: AppSettings) {
 	} else {
 		root.setAttribute("data-theme", settings.theme);
 	}
+	root.setAttribute("data-theme-resolved", resolvedThemeMode(settings.theme));
 	if (settings.themePack === "default") {
 		root.removeAttribute("data-pack");
 	} else {
 		root.setAttribute("data-pack", settings.themePack);
+	}
+}
+
+function bindSystemThemeListener(theme: ThemeMode) {
+	if (theme !== "system") {
+		systemThemeMedia?.removeEventListener("change", onSystemThemeChange);
+		systemThemeMedia = null;
+		return;
+	}
+	if (!systemThemeMedia) {
+		systemThemeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+		systemThemeMedia.addEventListener("change", onSystemThemeChange);
+	}
+}
+
+function onSystemThemeChange() {
+	if (state.settings?.theme === "system") {
+		applyThemeFromSettings(state.settings);
 	}
 }
 
@@ -443,6 +472,7 @@ async function refresh(mode: "full" | "list" = "full") {
 	state.alerts = presets.alerts;
 	state.snoozes = presets.snoozes;
 	applyThemeFromSettings(settings);
+	bindSystemThemeListener(settings.theme);
 
 	if (mode === "list" && state.view === "list") {
 		patchList();
@@ -771,6 +801,7 @@ function bindMainEvents() {
 			partial: { theme },
 		});
 		applyThemeFromSettings(state.settings);
+		bindSystemThemeListener(state.settings.theme);
 	});
 	document
 		.getElementById("theme-paradox")
@@ -780,6 +811,7 @@ function bindMainEvents() {
 				partial: { themePack: checked ? "paradox" : "default" },
 			});
 			applyThemeFromSettings(state.settings);
+			bindSystemThemeListener(state.settings.theme);
 		});
 	document.getElementById("ics-file")?.addEventListener("change", async (e) => {
 		const input = e.target as HTMLInputElement;

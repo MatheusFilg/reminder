@@ -5,7 +5,7 @@ import { createReminderRPC } from "./rpc";
 import { notifyAllDayRemindersOnOpen, startScheduler } from "./scheduler";
 import { applyLinuxRoundedCorners } from "./roundX11";
 import { installLinuxIcons } from "./icons";
-import { resolveTrayIconPath } from "./themePack";
+import { resolveTrayIconPath, resolveTrayIconViewsUri } from "./themePack";
 import { join } from "path";
 
 const POPOVER_WIDTH = 440;
@@ -115,9 +115,13 @@ const viewsAssetsRoot = join(PATHS.VIEWS_FOLDER, "assets");
 function refreshTrayImage() {
 	if (!tray) return;
 	const { themePack } = getSettings();
+	const viewsUri = resolveTrayIconViewsUri(themePack);
 	const iconPath = resolveTrayIconPath(themePack, viewsAssetsRoot);
 	try {
-		tray.setImage(iconPath);
+		if (process.platform === "linux" && iconPath) {
+			installLinuxIcons(iconPath);
+		}
+		tray.setImage(viewsUri);
 	} catch {
 		tray.setImage("views://assets/dev.reminder.app.png");
 	}

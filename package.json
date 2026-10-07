@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "electrobun dev",
+		"portal": "bun run portal-preview/server.ts",
 		"build": "electrobun build --env=stable"
 	},
 	"dependencies": {

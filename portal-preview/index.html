@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Reminder — preview (portal)</title>
+		<link rel="stylesheet" href="/mainview/index.css" />
+		<style>
+			body {
+				display: flex;
+				align-items: flex-start;
+				justify-content: center;
+				min-height: 100vh;
+				padding: 12px;
+			}
+			.portal-frame {
+				width: 440px;
+				height: 640px;
+				max-height: calc(100vh - 24px);
+				border-radius: var(--radius);
+				box-shadow: var(--shadow);
+				overflow: hidden;
+				display: flex;
+				flex-direction: column;
+				background: var(--bg);
+			}
+			.portal-banner {
+				font-size: 0.65rem;
+				text-align: center;
+				padding: 4px 8px;
+				background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+				color: var(--muted);
+				border-bottom: 1px solid var(--border);
+			}
+			#app {
+				flex: 1;
+				min-height: 0;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="portal-frame">
+			<p class="portal-banner">
+				Simulação no navegador — sem bandeja/SQLite. Tema e layout espelham o app.
+			</p>
+			<div id="app"></div>
+		</div>
+		<script type="module" src="./preview.js"></script>
+	</body>
+</html>

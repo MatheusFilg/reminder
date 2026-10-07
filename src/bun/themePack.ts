@@ -26,6 +26,14 @@ export function resolveTrayIconPath(
 	);
 }
 
+/** URI que o Tray do Electrobun resolve para o PNG no bundle. */
+export function resolveTrayIconViewsUri(pack: ThemePackId): string {
+	if (pack === "paradox") {
+		return "views://assets/themes/paradox/tray.png";
+	}
+	return "views://assets/themes/default/tray.png";
+}
+
 export function resolveNotificationSoundPath(
 	pack: ThemePackId,
 	viewsAssetsRoot: string,
