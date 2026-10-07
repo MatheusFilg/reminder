@@ -53,6 +53,13 @@ interface SnoozePreset {
 	minutes: number;
 }
 
+interface GoogleCalendarStatus {
+	configured: boolean;
+	connected: boolean;
+	email: string | null;
+	lastSyncAt: string | null;
+}
+
 type ReminderRPC = {
 	bun: {
 		requests: {
@@ -99,6 +106,19 @@ type ReminderRPC = {
 				params: { text: string };
 				response: { imported: number; skipped: number; error?: string };
 			};
+			getGoogleCalendarStatus: {
+				params: {};
+				response: GoogleCalendarStatus;
+			};
+			connectGoogleCalendar: {
+				params: {};
+				response: { ok: boolean; email?: string; error?: string };
+			};
+			disconnectGoogleCalendar: { params: {}; response: { ok: true } };
+			syncGoogleCalendar: {
+				params: {};
+				response: { imported: number; error?: string };
+			};
 		};
 		messages: {};
 	};
@@ -129,6 +149,7 @@ const state = {
 	settings: null as AppSettings | null,
 	alerts: [] as AlertPreset[],
 	snoozes: [] as SnoozePreset[],
+	googleCalendar: null as GoogleCalendarStatus | null,
 	modal: null as
 		| null
 		| { mode: "create" }
@@ -137,7 +158,7 @@ const state = {
 };
 
 const rpc = Electroview.defineRPC<ReminderRPC>({
-	maxRequestTime: 10_000,
+	maxRequestTime: 180_000,
 	handlers: {
 		requests: {},
 		messages: {
@@ -458,19 +479,21 @@ function onSystemThemeChange() {
 
 async function refresh(mode: "full" | "list" = "full") {
 	const seq = ++refreshSeq;
-	const [items, settings, presets] = await Promise.all([
+	const [items, settings, presets, googleCalendar] = await Promise.all([
 		electrobun.rpc!.request.getReminders({
 			filter: state.filter,
 			search: state.search,
 		}),
 		electrobun.rpc!.request.getSettings({}),
 		electrobun.rpc!.request.getPresets({}),
+		electrobun.rpc!.request.getGoogleCalendarStatus({}),
 	]);
 	if (seq !== refreshSeq) return;
 	state.items = items;
 	state.settings = settings;
 	state.alerts = presets.alerts;
 	state.snoozes = presets.snoozes;
+	state.googleCalendar = googleCalendar;
 	applyThemeFromSettings(settings);
 	bindSystemThemeListener(settings.theme);
 
@@ -622,8 +645,18 @@ function renderList() {
   `;
 }
 
+function formatGoogleSyncLabel(iso: string | null) {
+	if (!iso) return "Ainda não sincronizado";
+	try {
+		return `Última sync: ${new Date(iso).toLocaleString("pt-BR")}`;
+	} catch {
+		return "Última sync registrada";
+	}
+}
+
 function renderSettings() {
 	const s = state.settings;
+	const g = state.googleCalendar;
 	if (!s) return "";
 	return `
     <div class="settings">
@@ -680,6 +713,26 @@ function renderSettings() {
           <span class="toggle-ui" aria-hidden="true"></span>
         </span>
       </label>
+      <div class="setting-card setting-card-column">
+        <span class="setting-copy">
+          <span class="setting-title">Google Agenda</span>
+          <span class="setting-hint">Calendário principal da conta, somente leitura (~90 dias). Tokens ficam só neste computador.</span>
+        </span>
+        ${
+					!g?.configured
+						? `<p class="import-status import-error">Credenciais OAuth ausentes. Siga <code>docs/google-cloud-oauth.md</code> (redirect <code>http://127.0.0.1:5198/oauth/callback</code>).</p>`
+						: g.connected
+							? `<p class="google-account">${escapeHtml(g.email ?? "Conta conectada")}</p>
+               <p class="setting-hint">${formatGoogleSyncLabel(g.lastSyncAt)}</p>`
+							: `<p class="setting-hint">Nenhuma conta conectada.</p>`
+				}
+        <div class="google-actions">
+          <button type="button" class="btn btn-primary" id="google-connect" ${!g?.configured || g?.connected ? "disabled" : ""}>Conectar Google</button>
+          <button type="button" class="btn" id="google-sync" ${!g?.connected ? "disabled" : ""}>Sincronizar agora</button>
+          <button type="button" class="btn btn-danger" id="google-disconnect" ${!g?.connected ? "disabled" : ""}>Desconectar</button>
+        </div>
+        <p class="import-status" id="google-status" hidden></p>
+      </div>
       <div class="setting-card setting-card-column">
         <span class="setting-copy">
           <span class="setting-title">Importar calendário (.ics)</span>
@@ -813,6 +866,57 @@ function bindMainEvents() {
 			applyThemeFromSettings(state.settings);
 			bindSystemThemeListener(state.settings.theme);
 		});
+	document.getElementById("google-connect")?.addEventListener("click", async () => {
+		const status = document.getElementById("google-status");
+		if (status) {
+			status.hidden = false;
+			status.classList.remove("import-error");
+			status.textContent = "Abrindo o Google no navegador…";
+		}
+		const result = await electrobun.rpc!.request.connectGoogleCalendar({});
+		if (status) {
+			status.hidden = false;
+			if (!result.ok) {
+				status.classList.add("import-error");
+				status.textContent = result.error ?? "Não foi possível conectar.";
+			} else {
+				status.classList.remove("import-error");
+				status.textContent = result.error
+					? result.error
+					: `Conectado como ${result.email ?? "conta Google"}.`;
+			}
+		}
+		await refresh();
+	});
+	document.getElementById("google-sync")?.addEventListener("click", async () => {
+		const status = document.getElementById("google-status");
+		if (status) {
+			status.hidden = false;
+			status.textContent = "Sincronizando…";
+		}
+		const result = await electrobun.rpc!.request.syncGoogleCalendar({});
+		if (status) {
+			status.hidden = false;
+			if (result.error) {
+				status.classList.add("import-error");
+				status.textContent = result.error;
+			} else {
+				status.classList.remove("import-error");
+				status.textContent = `${result.imported} evento(s) atualizado(s).`;
+			}
+		}
+		await refresh();
+	});
+	document.getElementById("google-disconnect")?.addEventListener("click", async () => {
+		await electrobun.rpc!.request.disconnectGoogleCalendar({});
+		const status = document.getElementById("google-status");
+		if (status) {
+			status.hidden = false;
+			status.classList.remove("import-error");
+			status.textContent = "Conta desconectada.";
+		}
+		await refresh();
+	});
 	document.getElementById("ics-file")?.addEventListener("change", async (e) => {
 		const input = e.target as HTMLInputElement;
 		const file = input.files?.[0];

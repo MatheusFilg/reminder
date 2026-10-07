@@ -31,7 +31,7 @@ export interface ReminderInput {
 	allDay: boolean;
 }
 
-export type ImportedEventSource = "ics";
+export type ImportedEventSource = "ics" | "google";
 
 export interface ImportedEventRow {
 	id: number;
@@ -57,7 +57,7 @@ export interface ReminderListItem {
 	alertOffsetsMinutes: number[];
 	isPaused: boolean;
 	allDay: boolean;
-	source?: "local" | "ics";
+	source?: "local" | "ics" | "google";
 	readOnly?: boolean;
 }
 

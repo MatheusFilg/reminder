@@ -388,6 +388,20 @@ label.setting-card {
 	gap: 10px;
 }
 
+.google-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 4px;
+}
+
+.google-account {
+	margin: 0;
+	font-size: 0.85rem;
+	font-weight: 600;
+	color: var(--text);
+}
+
 .setting-file {
 	font-size: 0.78rem;
 	color: var(--muted);

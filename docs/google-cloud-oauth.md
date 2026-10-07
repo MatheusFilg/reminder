@@ -30,8 +30,9 @@ Passo **manual** para você fazer antes da implementação OAuth no Reminder. N�
 O Reminder no Linux é app desktop (Electrobun), não site hospedado.
 
 1. **APIs & Services** → **Credentials** → **Create credentials** → **OAuth client ID**.
-2. Application type: **Desktop app** (recomendado para loopback no dev).
-   - Se no futuro usarem fluxo só com `http://127.0.0.1`, também é possível **Web application** com redirect URI `http://127.0.0.1:<porta>/oauth/callback` — o Malho definirá a porta no código.
+2. Application type: **Web application** (recomendado para o Reminder).
+   - **Authorized redirect URI:** `http://127.0.0.1:5198/oauth/callback` (porta fixa no código).
+   - Alternativa: **Desktop app** se preferir; o redirect usado continua sendo o URI acima — adicione-o no console se o Google pedir.
 3. Nome: ex. `Reminder Linux dev`.
 4. **Create** → baixe o JSON ou copie **Client ID** e **Client secret**.
 

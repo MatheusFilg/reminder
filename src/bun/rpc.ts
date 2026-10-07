@@ -1,4 +1,4 @@
-import { BrowserView, type RPCSchema } from "electrobun/bun";
+import { BrowserView, Utils, type RPCSchema } from "electrobun/bun";
 import {
 	ALERT_PRESETS,
 	SNOOZE_PRESETS,
@@ -40,6 +40,16 @@ import {
 } from "./recurrence";
 import { setAutostart } from "./autostart";
 import { notifyAllDayRemindersOnOpen, onSchedulerTick, runSchedulerTick } from "./scheduler";
+import {
+	getGoogleCalendarStatus,
+	runGoogleOAuthConnect,
+} from "./googleAuth";
+import {
+	disconnectGoogleCalendar,
+	syncGoogleCalendarEvents,
+	startGoogleCalendarBackgroundSync,
+} from "./googleCalendar";
+import type { GoogleCalendarStatus } from "./googleAuth";
 
 export type ReminderRPC = {
 	bun: RPCSchema<{
@@ -92,6 +102,16 @@ export type ReminderRPC = {
 			importIcs: {
 				params: { text: string };
 				response: { imported: number; skipped: number; error?: string };
+			};
+			getGoogleCalendarStatus: { params: {}; response: GoogleCalendarStatus };
+			connectGoogleCalendar: {
+				params: {};
+				response: { ok: boolean; email?: string; error?: string };
+			};
+			disconnectGoogleCalendar: { params: {}; response: { ok: true } };
+			syncGoogleCalendar: {
+				params: {};
+				response: { imported: number; error?: string };
 			};
 		};
 		messages: {};
@@ -159,7 +179,7 @@ function buildImportedListItem(row: ImportedEventRow): ReminderListItem {
 		alertOffsetsMinutes: [...IMPORTED_ALERT_OFFSETS_MINUTES],
 		isPaused: false,
 		allDay: row.all_day === 1,
-		source: "ics",
+		source: row.source === "google" ? "google" : "ics",
 		readOnly: true,
 	};
 }
@@ -196,7 +216,7 @@ export function createReminderRPC(
 	onSchedulerTick(() => emitChanged("scheduler"));
 
 	return BrowserView.defineRPC<ReminderRPC>({
-		maxRequestTime: 10_000,
+		maxRequestTime: 180_000,
 		handlers: {
 			requests: {
 				getReminders: ({ filter, search }) => {
@@ -360,6 +380,40 @@ export function createReminderRPC(
 						imported: imported + updated,
 						skipped: prepared.skipped,
 					};
+				},
+				getGoogleCalendarStatus: () => getGoogleCalendarStatus(),
+				connectGoogleCalendar: async () => {
+					try {
+						const { email } = await runGoogleOAuthConnect((url) => {
+							Utils.openExternal(url);
+						});
+						const sync = await syncGoogleCalendarEvents();
+						startGoogleCalendarBackgroundSync();
+						emitChanged("google-calendar");
+						if (sync.error) {
+							return {
+								ok: true,
+								email,
+								error: `Conectado, mas a sync falhou: ${sync.error}`,
+							};
+						}
+						return { ok: true, email };
+					} catch (e) {
+						return {
+							ok: false,
+							error: e instanceof Error ? e.message : String(e),
+						};
+					}
+				},
+				disconnectGoogleCalendar: () => {
+					disconnectGoogleCalendar();
+					emitChanged("google-calendar");
+					return { ok: true };
+				},
+				syncGoogleCalendar: async () => {
+					const result = await syncGoogleCalendarEvents();
+					emitChanged("google-calendar");
+					return result;
 				},
 			},
 			messages: {},

@@ -3,6 +3,7 @@ import { getSettings, saveSettings } from "./db";
 import { setAutostart } from "./autostart";
 import { createReminderRPC } from "./rpc";
 import { notifyAllDayRemindersOnOpen, startScheduler } from "./scheduler";
+import { startGoogleCalendarBackgroundSync } from "./googleCalendar";
 import { applyLinuxRoundedCorners } from "./roundX11";
 import { installLinuxIcons } from "./icons";
 import { resolveTrayIconPath, resolveTrayIconViewsUri } from "./themePack";
@@ -232,6 +233,7 @@ tray.on("tray-clicked", (event: { data?: { action?: string } }) => {
 const settings = getSettings();
 setAutostart(settings.autostart);
 startScheduler();
+startGoogleCalendarBackgroundSync();
 if (settings.pinned) {
 	showPopover();
 }
