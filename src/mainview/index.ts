@@ -643,7 +643,7 @@ function renderSettings() {
       <label class="setting-card" for="theme-paradox">
         <span class="setting-copy">
           <span class="setting-title">Tema violeta</span>
-          <span class="setting-hint">Paleta sci-fi, som e ícone da bandeja (pack Paradox)</span>
+          <span class="setting-hint">Paleta sci-fi e ícone da bandeja; som personalizado se o pack incluir notify.oga</span>
         </span>
         <span class="toggle">
           <input type="checkbox" id="theme-paradox" ${s.themePack === "paradox" ? "checked" : ""} />

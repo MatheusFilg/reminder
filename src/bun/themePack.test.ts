@@ -28,4 +28,13 @@ describe("themePack", () => {
 		const root = mkdtempSync(join(tmpdir(), "reminder-theme-"));
 		expect(resolveNotificationSoundPath("paradox", root)).toBeNull();
 	});
+
+	test("resolveNotificationSoundPath returns path when notify.oga exists", () => {
+		const root = mkdtempSync(join(tmpdir(), "reminder-theme-"));
+		const packDir = join(root, "themes", "paradox");
+		mkdirSync(packDir, { recursive: true });
+		const sound = join(packDir, "notify.oga");
+		writeFileSync(sound, "");
+		expect(resolveNotificationSoundPath("paradox", root)).toBe(sound);
+	});
 });

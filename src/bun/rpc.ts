@@ -286,6 +286,7 @@ export function createReminderRPC(
 					return { id: row.id };
 				},
 				updateReminder: ({ id, input }) => {
+					if (isImportedListId(id)) return { ok: false };
 					const existing = getReminderById(id);
 					if (!existing) return { ok: false };
 					if (isOnceFinished(existing) || existing.is_completed) {

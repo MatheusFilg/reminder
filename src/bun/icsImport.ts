@@ -17,8 +17,24 @@ export function prepareIcsImport(text: string, now = new Date()) {
 	}
 
 	const parsed = parseIcs(text);
+	if (parsed.length === 0) {
+		return {
+			events: [] as UpsertImportedInput[],
+			imported: 0,
+			skipped: 0,
+			error: "Nenhum evento reconhecível no arquivo (ou só recorrências RRULE).",
+		};
+	}
 	const { inWindow, skipped } = filterEventsInImportWindow(parsed, now);
 	const events = inWindow.map(parsedToUpsert);
+	if (events.length === 0 && skipped === 0) {
+		return {
+			events: [],
+			imported: 0,
+			skipped: 0,
+			error: "Nenhum evento dentro da janela de 90 dias.",
+		};
+	}
 
 	return {
 		events,
