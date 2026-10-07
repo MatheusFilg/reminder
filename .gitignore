@@ -8,3 +8,4 @@ portal-preview/.cache/
 *.db
 .DS_Store
 .secrets/
+.env

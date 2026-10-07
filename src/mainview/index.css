@@ -422,6 +422,50 @@ label.setting-card {
 	color: var(--danger);
 }
 
+.modal-actions-stack {
+	flex-direction: column;
+	align-items: stretch;
+}
+
+.modal-actions-stack .btn {
+	width: 100%;
+}
+
+.modal-foot-hint {
+	margin: 12px 0 0;
+	font-size: 0.75rem;
+}
+
+.ignore-rules-list {
+	list-style: none;
+	margin: 8px 0 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.ignore-rule {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.ignore-rule-title {
+	font-size: 0.85rem;
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.ignore-rule-remove {
+	flex-shrink: 0;
+	font-size: 0.78rem;
+	padding: 6px 10px;
+}
+
 .badge-imported {
 	display: inline-block;
 	margin-left: 8px;

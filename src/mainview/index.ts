@@ -60,6 +60,13 @@ interface GoogleCalendarStatus {
 	lastSyncAt: string | null;
 }
 
+interface ImportedIgnoreRule {
+	id: number;
+	titleNorm: string;
+	sampleTitle: string;
+	createdAt: string;
+}
+
 type ReminderRPC = {
 	bun: {
 		requests: {
@@ -119,6 +126,25 @@ type ReminderRPC = {
 				params: {};
 				response: { imported: number; error?: string };
 			};
+			dismissImportedSimilar: {
+				params: { listId: number; mode: "hide" | "remove" };
+				response: { removed: number; ruleAdded: boolean; error?: string };
+			};
+			getImportedIgnoreRules: {
+				params: {};
+				response: {
+					rules: {
+						id: number;
+						titleNorm: string;
+						sampleTitle: string;
+						createdAt: string;
+					}[];
+				};
+			};
+			removeImportedIgnoreRule: {
+				params: { ruleId: number };
+				response: { ok: true };
+			};
 		};
 		messages: {};
 	};
@@ -150,11 +176,13 @@ const state = {
 	alerts: [] as AlertPreset[],
 	snoozes: [] as SnoozePreset[],
 	googleCalendar: null as GoogleCalendarStatus | null,
+	importedIgnoreRules: [] as ImportedIgnoreRule[],
 	modal: null as
 		| null
 		| { mode: "create" }
 		| { mode: "edit"; id: number }
-		| { mode: "delete"; id: number; name: string },
+		| { mode: "delete"; id: number; name: string }
+		| { mode: "imported-dismiss"; id: number; name: string },
 };
 
 const rpc = Electroview.defineRPC<ReminderRPC>({
@@ -192,6 +220,7 @@ const ICONS: Record<string, string> = {
 	bellOff: `<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M17 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6 6 0 0 1 .258-1.742"/><path d="m2 2 20 20"/><path d="M8.668 3.01A6 6 0 0 1 18 8c0 .637-.12 1.231-.322 1.746"/>`,
 	pin: `<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16h14v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>`,
 	arrowLeft: `<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>`,
+	eyeOff: `<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>`,
 };
 
 function icon(name: keyof typeof ICONS, size = 18) {
@@ -479,7 +508,7 @@ function onSystemThemeChange() {
 
 async function refresh(mode: "full" | "list" = "full") {
 	const seq = ++refreshSeq;
-	const [items, settings, presets, googleCalendar] = await Promise.all([
+	const [items, settings, presets, googleCalendar, ignoreRules] = await Promise.all([
 		electrobun.rpc!.request.getReminders({
 			filter: state.filter,
 			search: state.search,
@@ -487,6 +516,7 @@ async function refresh(mode: "full" | "list" = "full") {
 		electrobun.rpc!.request.getSettings({}),
 		electrobun.rpc!.request.getPresets({}),
 		electrobun.rpc!.request.getGoogleCalendarStatus({}),
+		electrobun.rpc!.request.getImportedIgnoreRules({}),
 	]);
 	if (seq !== refreshSeq) return;
 	state.items = items;
@@ -494,6 +524,7 @@ async function refresh(mode: "full" | "list" = "full") {
 	state.alerts = presets.alerts;
 	state.snoozes = presets.snoozes;
 	state.googleCalendar = googleCalendar;
+	state.importedIgnoreRules = ignoreRules.rules;
 	applyThemeFromSettings(settings);
 	bindSystemThemeListener(settings.theme);
 
@@ -524,6 +555,11 @@ function openModal(mode: "create" | "edit", id?: number) {
 
 function openDeleteModal(item: ReminderListItem) {
 	state.modal = { mode: "delete", id: item.id, name: item.name };
+	void renderModal();
+}
+
+function openImportedDismissModal(item: ReminderListItem) {
+	state.modal = { mode: "imported-dismiss", id: item.id, name: item.name };
 	void renderModal();
 }
 
@@ -565,6 +601,60 @@ function renderDeleteModal(modal: {
 			closeModal();
 			await refresh();
 		});
+	document.addEventListener(
+		"keydown",
+		(e) => {
+			if (e.key === "Escape") closeModal();
+		},
+		{ once: true },
+	);
+}
+
+function renderImportedDismissModal(modal: {
+	mode: "imported-dismiss";
+	id: number;
+	name: string;
+}) {
+	modalRoot.classList.remove("hidden");
+	modalRoot.setAttribute("aria-hidden", "false");
+	modalRoot.innerHTML = `
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal modal-confirm" role="dialog" aria-modal="true" aria-labelledby="imported-dismiss-title">
+      <h2 id="imported-dismiss-title">Eventos importados semelhantes</h2>
+      <p class="confirm-copy">
+        Aplicar a todos com título igual ou parecido com
+        <strong>${escapeHtml(modal.name)}</strong> (inclui outras datas, ex. toda sexta).
+      </p>
+      <div class="modal-actions modal-actions-stack">
+        <button type="button" class="btn btn-primary" id="imported-hide-similar">Ocultar e não avisar</button>
+        <button type="button" class="btn" id="imported-remove-similar">Remover só agora</button>
+        <button type="button" class="btn" id="cancel-modal">Cancelar</button>
+      </div>
+      <p class="setting-hint modal-foot-hint">Ocultar: some da lista e não volta na sync. Remover só agora: apaga desta vez; na próxima sync pode voltar.</p>
+    </div>
+  `;
+
+	const close = () => closeModal();
+	const run = async (mode: "hide" | "remove") => {
+		const result = await electrobun.rpc!.request.dismissImportedSimilar({
+			listId: modal.id,
+			mode,
+		});
+		closeModal();
+		if (result.error) {
+			alert(result.error);
+			return;
+		}
+		await refresh();
+	};
+	document.getElementById("modal-backdrop")?.addEventListener("click", close);
+	document.getElementById("cancel-modal")?.addEventListener("click", close);
+	document
+		.getElementById("imported-hide-similar")
+		?.addEventListener("click", () => void run("hide"));
+	document
+		.getElementById("imported-remove-similar")
+		?.addEventListener("click", () => void run("remove"));
 	document.addEventListener(
 		"keydown",
 		(e) => {
@@ -620,7 +710,7 @@ function listItemsHtml() {
 							}
               ${
 								item.readOnly
-									? ""
+									? `<button class="action-btn" data-dismiss-imported="${item.id}" title="Ocultar ou remover semelhantes" aria-label="Ocultar importados semelhantes">${icon("eyeOff", 16)}</button>`
 									: `<button class="action-btn danger" data-delete="${item.id}" title="Excluir" aria-label="Excluir">${icon("trash", 16)}</button>`
 							}
             </div>
@@ -741,6 +831,27 @@ function renderSettings() {
         <input type="file" id="ics-file" accept=".ics,text/calendar" class="setting-file" />
         <p class="import-status" id="import-status" hidden></p>
       </div>
+      ${
+				state.importedIgnoreRules.length > 0
+					? `<div class="setting-card setting-card-column">
+        <span class="setting-copy">
+          <span class="setting-title">Importados ocultos</span>
+          <span class="setting-hint">Títulos semelhantes não aparecem nem geram aviso após nova sync.</span>
+        </span>
+        <ul class="ignore-rules-list">
+          ${state.importedIgnoreRules
+						.map(
+							(rule) => `
+            <li class="ignore-rule">
+              <span class="ignore-rule-title">${escapeHtml(rule.sampleTitle)}</span>
+              <button type="button" class="btn btn-danger ignore-rule-remove" data-ignore-rule="${rule.id}">Permitir de novo</button>
+            </li>`,
+						)
+						.join("")}
+        </ul>
+      </div>`
+					: ""
+			}
       <p class="setting-about">Reminder v0.1.0</p>
     </div>
   `;
@@ -943,6 +1054,14 @@ function bindMainEvents() {
 		}
 		input.value = "";
 	});
+	document.querySelectorAll(".ignore-rule-remove").forEach((btn) => {
+		btn.addEventListener("click", async () => {
+			const ruleId = Number(btn.getAttribute("data-ignore-rule"));
+			if (!ruleId) return;
+			await electrobun.rpc!.request.removeImportedIgnoreRule({ ruleId });
+			await refresh();
+		});
+	});
 }
 
 function bindListActions() {
@@ -962,6 +1081,16 @@ function bindListActions() {
 			openDeleteModal(item);
 		});
 	});
+
+	document.querySelectorAll("[data-dismiss-imported]").forEach((btn) => {
+		btn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			const id = Number(btn.getAttribute("data-dismiss-imported"));
+			const item = state.items.find((i) => i.id === id);
+			if (!item) return;
+			openImportedDismissModal(item);
+		});
+	});
 }
 
 async function renderModal() {
@@ -969,6 +1098,11 @@ async function renderModal() {
 
 	if (state.modal.mode === "delete") {
 		renderDeleteModal(state.modal);
+		return;
+	}
+
+	if (state.modal.mode === "imported-dismiss") {
+		renderImportedDismissModal(state.modal);
 		return;
 	}
 

@@ -20,6 +20,14 @@ import {
 	wasImportedAlertFired,
 	type UpsertImportedInput,
 } from "./importedEvents";
+import {
+	dismissImportedSimilar,
+	listImportedIgnoreRules,
+	migrateImportedIgnore,
+	removeImportedIgnoreRule,
+	type DismissImportedMode,
+	type ImportedIgnoreRule,
+} from "./importedIgnore";
 
 const dataDir = Utils.paths.userData;
 if (!existsSync(dataDir)) {
@@ -92,6 +100,7 @@ db.exec(`
 }
 
 migrateImportedEvents(db);
+migrateImportedIgnore(db);
 
 export const defaultSettings: AppSettings = {
 	autostart: true,
@@ -324,6 +333,23 @@ export function getImportedEventByIdDb(id: number) {
 
 export function deleteImportedBySourceDb(source: ImportedEventSource) {
 	return deleteImportedBySource(db, source);
+}
+
+export type { DismissImportedMode, ImportedIgnoreRule };
+
+export function listImportedIgnoreRulesDb() {
+	return listImportedIgnoreRules(db);
+}
+
+export function removeImportedIgnoreRuleDb(ruleId: number) {
+	removeImportedIgnoreRule(db, ruleId);
+}
+
+export function dismissImportedSimilarDb(
+	anchorTitle: string,
+	mode: DismissImportedMode,
+) {
+	return dismissImportedSimilar(db, anchorTitle, mode);
 }
 
 export function markImportedAlertFiredDb(

@@ -17,16 +17,21 @@ import {
 	getCompletedOccurrenceList,
 	getReminderById,
 	getSettings,
+	getImportedEventByIdDb,
 	listImportedInWindowDb,
 	saveSettings,
 	snoozeReminder,
 	updateReminder,
 	upsertImportedEventsDb,
+	dismissImportedSimilar as dismissImportedSimilarDb,
+	listImportedIgnoreRules as listImportedIgnoreRulesDb,
+	removeImportedIgnoreRule as removeImportedIgnoreRuleDb,
 } from "./db";
 import { ICS_IMPORT_WINDOW_DAYS } from "./ics";
 import { prepareIcsImport } from "./icsImport";
 import {
 	IMPORTED_ALERT_OFFSETS_MINUTES,
+	importedDbIdFromListId,
 	isImportedListId,
 	listIdForImported,
 } from "./importedEvents";
@@ -112,6 +117,25 @@ export type ReminderRPC = {
 			syncGoogleCalendar: {
 				params: {};
 				response: { imported: number; error?: string };
+			};
+			dismissImportedSimilar: {
+				params: { listId: number; mode: "hide" | "remove" };
+				response: { removed: number; ruleAdded: boolean; error?: string };
+			};
+			getImportedIgnoreRules: {
+				params: {};
+				response: {
+					rules: {
+						id: number;
+						titleNorm: string;
+						sampleTitle: string;
+						createdAt: string;
+					}[];
+				};
+			};
+			removeImportedIgnoreRule: {
+				params: { ruleId: number };
+				response: { ok: true };
 			};
 		};
 		messages: {};
@@ -414,6 +438,35 @@ export function createReminderRPC(
 					const result = await syncGoogleCalendarEvents();
 					emitChanged("google-calendar");
 					return result;
+				},
+				dismissImportedSimilar: ({ listId, mode }) => {
+					if (!isImportedListId(listId)) {
+						return {
+							removed: 0,
+							ruleAdded: false,
+							error: "Evento importado inválido.",
+						};
+					}
+					const row = getImportedEventByIdDb(importedDbIdFromListId(listId));
+					if (!row) {
+						return {
+							removed: 0,
+							ruleAdded: false,
+							error: "Evento não encontrado.",
+						};
+					}
+					const result = dismissImportedSimilarDb(row.summary, mode);
+					runSchedulerTick();
+					emitChanged("imported-dismiss");
+					return result;
+				},
+				getImportedIgnoreRules: () => ({
+					rules: listImportedIgnoreRulesDb(),
+				}),
+				removeImportedIgnoreRule: ({ ruleId }) => {
+					removeImportedIgnoreRuleDb(ruleId);
+					emitChanged("imported-ignore-rules");
+					return { ok: true };
 				},
 			},
 			messages: {},

@@ -1,6 +1,12 @@
 import type { Database } from "bun:sqlite";
 import type { ImportedEventRow, ImportedEventSource } from "./types";
 import type { ParsedIcsEvent } from "./ics";
+import {
+	filterIgnoredImportedSummaries,
+	isImportedTitleIgnored,
+	listImportedIgnoreRules,
+	migrateImportedIgnore,
+} from "./importedIgnore";
 
 export const IMPORTED_ALERT_OFFSETS_MINUTES = [15, 0];
 
@@ -33,6 +39,7 @@ export const IMPORTED_EVENTS_DDL = `
 
 export function migrateImportedEvents(database: Database) {
 	database.exec(IMPORTED_EVENTS_DDL);
+	migrateImportedIgnore(database);
 }
 
 export function listIdForImported(dbId: number): number {
@@ -76,9 +83,12 @@ export function upsertImportedEvents(
       imported_at = datetime('now')`,
 	);
 
+	const ignoreNorms = listImportedIgnoreRules(database).map((r) => r.titleNorm);
+
 	let imported = 0;
 	let updated = 0;
 	for (const ev of events) {
+		if (isImportedTitleIgnored(ev.summary, ignoreNorms)) continue;
 		const before = database
 			.query(
 				"SELECT id FROM imported_events WHERE source = ? AND external_id = ?",
@@ -117,13 +127,14 @@ export function listImportedInWindow(
 	fromIso: string,
 	toIso: string,
 ): ImportedEventRow[] {
-	return database
+	const rows = database
 		.query(
 			`SELECT * FROM imported_events
        WHERE starts_at >= ? AND starts_at <= ?
        ORDER BY starts_at ASC`,
 		)
 		.all(fromIso, toIso) as ImportedEventRow[];
+	return filterIgnoredImportedSummaries(rows, database);
 }
 
 export function getImportedEventById(
