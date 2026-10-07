@@ -104,6 +104,10 @@ export type ReminderRPC = {
 				};
 			};
 			hidePopover: { params: {}; response: { ok: true } };
+			deferPopoverBlur: {
+				params: { ms?: number };
+				response: { ok: true };
+			};
 			importIcs: {
 				params: { text: string };
 				response: { imported: number; skipped: number; error?: string };
@@ -232,6 +236,7 @@ export function createReminderRPC(
 	onHide?: () => void,
 	onPinnedChange?: (pinned: boolean) => void,
 	onThemeChange?: () => void,
+	onDeferPopoverBlur?: (ms: number) => void,
 ) {
 	const emitChanged = (reason: string) => {
 		getView()?.rpc?.send["reminders-changed"]({ reason });
@@ -386,6 +391,10 @@ export function createReminderRPC(
 				}),
 				hidePopover: () => {
 					onHide?.();
+					return { ok: true };
+				},
+				deferPopoverBlur: ({ ms }) => {
+					onDeferPopoverBlur?.(ms ?? 12_000);
 					return { ok: true };
 				},
 				importIcs: ({ text }) => {

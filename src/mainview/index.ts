@@ -115,6 +115,10 @@ type ReminderRPC = {
 				response: { alerts: AlertPreset[]; snoozes: SnoozePreset[] };
 			};
 			hidePopover: { params: {}; response: { ok: true } };
+			deferPopoverBlur: {
+				params: { ms?: number };
+				response: { ok: true };
+			};
 			importIcs: {
 				params: { text: string };
 				response: { imported: number; skipped: number; error?: string };
@@ -218,6 +222,35 @@ const rpc = Electroview.defineRPC<ReminderRPC>({
 });
 
 const electrobun = new Electrobun.Electroview({ rpc });
+
+let nativePickerBlurGuard = false;
+function bindNativePickerBlurGuard() {
+	if (nativePickerBlurGuard) return;
+	nativePickerBlurGuard = true;
+	document.addEventListener(
+		"mousedown",
+		(e) => {
+			const t = e.target;
+			if (t instanceof HTMLSelectElement) {
+				void electrobun.rpc!.request.deferPopoverBlur({ ms: 15_000 });
+				return;
+			}
+			if (t instanceof HTMLInputElement) {
+				const type = t.type;
+				if (
+					type === "file" ||
+					type === "date" ||
+					type === "time" ||
+					type === "datetime-local"
+				) {
+					void electrobun.rpc!.request.deferPopoverBlur({ ms: 15_000 });
+				}
+			}
+		},
+		true,
+	);
+}
+bindNativePickerBlurGuard();
 
 const ICONS: Record<string, string> = {
 	plus: `<path d="M5 12h14"/><path d="M12 5v14"/>`,

@@ -58,6 +58,10 @@ function roundPopover() {
 	applyLinuxRoundedCorners(POPOVER_WIDTH, POPOVER_HEIGHT, CORNER_RADIUS);
 }
 
+function deferPopoverBlur(ms = 12_000) {
+	ignoreBlurUntil = Math.max(ignoreBlurUntil, Date.now() + ms);
+}
+
 function showPopover() {
 	if (!popoverWindow) return;
 	ignoreBlurUntil = Date.now() + 350;
@@ -168,6 +172,7 @@ popoverWindow = new BrowserWindow({
 			refreshTrayImage();
 			emitUiEvent("theme");
 		},
+		deferPopoverBlur,
 	),
 	titleBarStyle: "hidden",
 	transparent: false,
