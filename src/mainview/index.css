@@ -511,6 +511,10 @@ label.setting-card {
 	border-color: color-mix(in srgb, var(--danger) 35%, transparent);
 }
 
+.google-icon-btn-danger .lucide {
+	stroke-width: 2.25;
+}
+
 .google-icon-btn-danger:hover:not(:disabled) {
 	background: color-mix(in srgb, var(--danger) 10%, transparent);
 }

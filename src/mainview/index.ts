@@ -193,7 +193,8 @@ const state = {
 		| { mode: "create" }
 		| { mode: "edit"; id: number }
 		| { mode: "delete"; id: number; name: string }
-		| { mode: "imported-dismiss"; id: number; name: string },
+		| { mode: "imported-dismiss"; id: number; name: string }
+		| { mode: "google-disconnect"; email: string | null },
 };
 
 const rpc = Electroview.defineRPC<ReminderRPC>({
@@ -266,7 +267,7 @@ const ICONS: Record<string, string> = {
 	chevronRight: `<path d="m9 18 6-6-6-6"/>`,
 	eyeOff: `<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>`,
 	refreshCw: `<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>`,
-	unlink: `<path d="m18.84 12.25-6.15 6.15"/><path d="m5.16 5.16 6.15 6.15"/><path d="M8.12 8.12A5 5 0 0 1 12 12h0a5 5 0 0 1 5 5v0"/><path d="M15.88 15.88A5 5 0 0 1 12 12h0a5 5 0 0 1-5-5v0"/>`,
+	link2Off: `<path d="M9 17H7A5 5 0 0 1 7 7"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/>`,
 };
 
 function icon(name: keyof typeof ICONS, size = 18) {
@@ -618,6 +619,14 @@ function openImportedDismissModal(item: ReminderListItem) {
 	void renderModal();
 }
 
+function openGoogleDisconnectModal() {
+	state.modal = {
+		mode: "google-disconnect",
+		email: state.googleCalendar?.email ?? null,
+	};
+	void renderModal();
+}
+
 function closeModal() {
 	state.modal = null;
 	modalRoot.classList.add("hidden");
@@ -710,6 +719,54 @@ function renderImportedDismissModal(modal: {
 	document
 		.getElementById("imported-remove-similar")
 		?.addEventListener("click", () => void run("remove"));
+	document.addEventListener(
+		"keydown",
+		(e) => {
+			if (e.key === "Escape") closeModal();
+		},
+		{ once: true },
+	);
+}
+
+function renderGoogleDisconnectModal(modal: {
+	mode: "google-disconnect";
+	email: string | null;
+}) {
+	const accountLine = modal.email
+		? `Conta <strong>${escapeHtml(modal.email)}</strong>. `
+		: "";
+	modalRoot.classList.remove("hidden");
+	modalRoot.setAttribute("aria-hidden", "false");
+	modalRoot.innerHTML = `
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal modal-confirm" role="dialog" aria-modal="true" aria-labelledby="google-disconnect-title">
+      <h2 id="google-disconnect-title">Desvincular Google Agenda?</h2>
+      <p class="confirm-copy">
+        ${accountLine}Os tokens saem só deste computador. Os <strong>eventos importados</strong> da Google Agenda somem da lista e os <strong>avisos</strong> ligados a eles são removidos. Seus lembretes criados no app não são apagados.
+      </p>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="cancel-modal">Cancelar</button>
+        <button type="button" class="btn btn-danger-solid" id="confirm-google-disconnect">Desvincular</button>
+      </div>
+    </div>
+  `;
+
+	const close = () => closeModal();
+	document.getElementById("modal-backdrop")?.addEventListener("click", close);
+	document.getElementById("cancel-modal")?.addEventListener("click", close);
+	document
+		.getElementById("confirm-google-disconnect")
+		?.addEventListener("click", async () => {
+			await electrobun.rpc!.request.disconnectGoogleCalendar({});
+			closeModal();
+			const status = document.getElementById("google-status");
+			if (status) {
+				status.hidden = false;
+				status.classList.remove("import-error");
+				status.textContent = "Conta desvinculada.";
+			}
+			await refresh();
+		});
 	document.addEventListener(
 		"keydown",
 		(e) => {
@@ -973,7 +1030,7 @@ function renderSettingsCalendars() {
         <div class="google-actions">
           <button type="button" class="google-icon-btn google-icon-btn-primary" id="google-connect" title="Conectar Google" aria-label="Conectar Google" ${!g?.configured || g?.connected ? "disabled" : ""}>${iconGoogle(20)}</button>
           <button type="button" class="google-icon-btn" id="google-sync" title="Sincronizar agora" aria-label="Sincronizar agora" ${!g?.connected ? "disabled" : ""}>${icon("refreshCw", 18)}</button>
-          <button type="button" class="google-icon-btn google-icon-btn-danger" id="google-disconnect" title="Desconectar" aria-label="Desconectar conta Google" ${!g?.connected ? "disabled" : ""}>${icon("unlink", 18)}</button>
+          <button type="button" class="google-icon-btn google-icon-btn-danger" id="google-disconnect" title="Desvincular conta Google" aria-label="Desvincular conta Google" ${!g?.connected ? "disabled" : ""}>${icon("link2Off", 20)}</button>
         </div>
         <p class="import-status" id="google-status" hidden></p>
       </div>
@@ -1176,15 +1233,8 @@ function bindMainEvents() {
 		}
 		await refresh();
 	});
-	document.getElementById("google-disconnect")?.addEventListener("click", async () => {
-		await electrobun.rpc!.request.disconnectGoogleCalendar({});
-		const status = document.getElementById("google-status");
-		if (status) {
-			status.hidden = false;
-			status.classList.remove("import-error");
-			status.textContent = "Conta desconectada.";
-		}
-		await refresh();
+	document.getElementById("google-disconnect")?.addEventListener("click", () => {
+		openGoogleDisconnectModal();
 	});
 	document.getElementById("ics-file")?.addEventListener("change", async (e) => {
 		const input = e.target as HTMLInputElement;
@@ -1261,6 +1311,11 @@ async function renderModal() {
 
 	if (state.modal.mode === "imported-dismiss") {
 		renderImportedDismissModal(state.modal);
+		return;
+	}
+
+	if (state.modal.mode === "google-disconnect") {
+		renderGoogleDisconnectModal(state.modal);
 		return;
 	}
 
