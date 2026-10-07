@@ -15,7 +15,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-	:root {
+	:root:not([data-theme="light"]) {
 		--bg: #18181b;
 		--surface: #27272a;
 		--surface-2: #3f3f46;
@@ -27,6 +27,59 @@
 		--on-accent: #18181b;
 		--danger: #f87171;
 	}
+}
+
+:root[data-theme="light"] {
+	color-scheme: light;
+	--bg: #f4f4f5;
+	--surface: #ffffff;
+	--surface-2: #fafafa;
+	--text: #18181b;
+	--muted: #71717a;
+	--border: #e4e4e7;
+	--accent: #3f3f46;
+	--accent-hover: #18181b;
+	--on-accent: #fafafa;
+	--danger: #ef4444;
+}
+
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	--bg: #18181b;
+	--surface: #27272a;
+	--surface-2: #3f3f46;
+	--text: #fafafa;
+	--muted: #a1a1aa;
+	--border: #3f3f46;
+	--accent: #d4d4d8;
+	--accent-hover: #fafafa;
+	--on-accent: #18181b;
+	--danger: #f87171;
+}
+
+:root[data-pack="paradox"] {
+	--accent: #a78bfa;
+	--accent-hover: #c4b5fd;
+	--on-accent: #1e1b4b;
+	--border: #4c1d95;
+}
+
+:root[data-pack="paradox"][data-theme="light"],
+:root[data-pack="paradox"]:not([data-theme="dark"]) {
+	--bg: #f5f3ff;
+	--surface: #ede9fe;
+	--surface-2: #ddd6fe;
+	--text: #1e1b4b;
+	--muted: #5b21b6;
+}
+
+:root[data-pack="paradox"][data-theme="dark"],
+:root[data-pack="paradox"]:not([data-theme="light"]) {
+	--bg: #0f0720;
+	--surface: #1e1035;
+	--surface-2: #2e1065;
+	--text: #ede9fe;
+	--muted: #c4b5fd;
 }
 
 * {
@@ -297,6 +350,51 @@ body {
 
 label.setting-card {
 	cursor: pointer;
+}
+
+.setting-select {
+	min-width: 7.5rem;
+	padding: 8px 10px;
+	border-radius: 10px;
+	border: 1px solid var(--border);
+	background: var(--surface-2);
+	color: var(--text);
+	font: inherit;
+}
+
+.setting-card-column {
+	flex-direction: column;
+	align-items: stretch;
+	gap: 10px;
+}
+
+.setting-file {
+	font-size: 0.78rem;
+	color: var(--muted);
+}
+
+.import-status {
+	margin: 0;
+	font-size: 0.72rem;
+	color: var(--muted);
+}
+
+.import-status.import-error {
+	color: var(--danger);
+}
+
+.badge-imported {
+	display: inline-block;
+	margin-left: 8px;
+	padding: 2px 7px;
+	font-size: 0.62rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--muted);
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	vertical-align: middle;
 }
 
 .setting-about {

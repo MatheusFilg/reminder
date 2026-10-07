@@ -2,7 +2,24 @@ import Database from "bun:sqlite";
 import { Utils } from "electrobun/bun";
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import type { AppSettings, ReminderInput, ReminderRow } from "./types";
+import type {
+	AppSettings,
+	ImportedEventRow,
+	ImportedEventSource,
+	ReminderInput,
+	ReminderRow,
+} from "./types";
+import { appSettingsFromMap } from "./settings";
+import {
+	deleteImportedBySource,
+	getImportedEventById,
+	listImportedInWindow,
+	markImportedAlertFired,
+	migrateImportedEvents,
+	upsertImportedEvents,
+	wasImportedAlertFired,
+	type UpsertImportedInput,
+} from "./importedEvents";
 
 const dataDir = Utils.paths.userData;
 if (!existsSync(dataDir)) {
@@ -74,11 +91,15 @@ db.exec(`
 	}
 }
 
-const defaultSettings: AppSettings = {
+migrateImportedEvents(db);
+
+export const defaultSettings: AppSettings = {
 	autostart: true,
 	pausedGlobally: false,
 	missedAlertHours: 24,
 	pinned: false,
+	theme: "system",
+	themePack: "default",
 };
 
 export function getSettings(): AppSettings {
@@ -87,12 +108,7 @@ export function getSettings(): AppSettings {
 		value: string;
 	}[];
 	const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-	return {
-		autostart: map.autostart !== "false",
-		pausedGlobally: map.pausedGlobally === "true",
-		missedAlertHours: Number(map.missedAlertHours ?? 24),
-		pinned: map.pinned === "true",
-	};
+	return appSettingsFromMap(map, defaultSettings);
 }
 
 export function saveSettings(partial: Partial<AppSettings>) {
@@ -294,4 +310,38 @@ export function clearExpiredSnoozes() {
 	db.query("DELETE FROM snoozes WHERE snooze_until <= datetime('now')").run();
 }
 
-export { dbPath, defaultSettings };
+export function upsertImportedEventsDb(events: UpsertImportedInput[]) {
+	return upsertImportedEvents(db, events);
+}
+
+export function listImportedInWindowDb(fromIso: string, toIso: string) {
+	return listImportedInWindow(db, fromIso, toIso);
+}
+
+export function getImportedEventByIdDb(id: number) {
+	return getImportedEventById(db, id);
+}
+
+export function deleteImportedBySourceDb(source: ImportedEventSource) {
+	return deleteImportedBySource(db, source);
+}
+
+export function markImportedAlertFiredDb(
+	importedEventId: number,
+	occurrenceAt: string,
+	minutesBefore: number,
+) {
+	return markImportedAlertFired(db, importedEventId, occurrenceAt, minutesBefore);
+}
+
+export function wasImportedAlertFiredDb(
+	importedEventId: number,
+	occurrenceAt: string,
+	minutesBefore: number,
+) {
+	return wasImportedAlertFired(db, importedEventId, occurrenceAt, minutesBefore);
+}
+
+export type { ImportedEventRow };
+
+export { dbPath };

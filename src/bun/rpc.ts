@@ -17,10 +17,20 @@ import {
 	getCompletedOccurrenceList,
 	getReminderById,
 	getSettings,
+	listImportedInWindowDb,
 	saveSettings,
 	snoozeReminder,
 	updateReminder,
+	upsertImportedEventsDb,
 } from "./db";
+import { ICS_IMPORT_WINDOW_DAYS } from "./ics";
+import { prepareIcsImport } from "./icsImport";
+import {
+	IMPORTED_ALERT_OFFSETS_MINUTES,
+	isImportedListId,
+	listIdForImported,
+} from "./importedEvents";
+import type { ImportedEventRow } from "./types";
 import {
 	formatOccurrenceLabel,
 	getListGroup,
@@ -79,6 +89,10 @@ export type ReminderRPC = {
 				};
 			};
 			hidePopover: { params: {}; response: { ok: true } };
+			importIcs: {
+				params: { text: string };
+				response: { imported: number; skipped: number; error?: string };
+			};
 		};
 		messages: {};
 	}>;
@@ -118,6 +132,35 @@ function buildListItem(
 		alertOffsetsMinutes: getAlertOffsets(reminder.id),
 		isPaused: !!reminder.is_paused,
 		allDay: isAllDay(reminder),
+		source: "local",
+		readOnly: false,
+	};
+}
+
+function importedListWindow(now: Date, missedHours: number) {
+	const from = new Date(now.getTime() - missedHours * 60 * 60 * 1000);
+	const to = new Date(now);
+	to.setDate(to.getDate() + ICS_IMPORT_WINDOW_DAYS);
+	return { fromIso: from.toISOString(), toIso: to.toISOString() };
+}
+
+function buildImportedListItem(row: ImportedEventRow): ReminderListItem {
+	const occurrence = new Date(row.starts_at);
+	return {
+		id: listIdForImported(row.id),
+		name: row.summary,
+		description: row.description,
+		recurrenceType: "once",
+		nextOccurrence: occurrence.toISOString(),
+		nextOccurrenceLabel: formatOccurrenceLabel(occurrence, new Date(), {
+			allDay: row.all_day === 1,
+		}),
+		group: getListGroup(occurrence),
+		alertOffsetsMinutes: [...IMPORTED_ALERT_OFFSETS_MINUTES],
+		isPaused: false,
+		allDay: row.all_day === 1,
+		source: "ics",
+		readOnly: true,
 	};
 }
 
@@ -142,9 +185,9 @@ function toInput(
 
 export function createReminderRPC(
 	getView: () => BrowserView | undefined,
-	execPath: string,
 	onHide?: () => void,
 	onPinnedChange?: (pinned: boolean) => void,
+	onThemeChange?: () => void,
 ) {
 	const emitChanged = (reason: string) => {
 		getView()?.rpc?.send["reminders-changed"]({ reason });
@@ -158,6 +201,7 @@ export function createReminderRPC(
 			requests: {
 				getReminders: ({ filter, search }) => {
 					const query = search?.trim().toLowerCase() ?? "";
+					const settings = getSettings();
 					const now = new Date();
 					const items: ReminderListItem[] = [];
 
@@ -189,6 +233,16 @@ export function createReminderRPC(
 						items.push(buildListItem(reminder, next));
 					}
 
+					if (filter === "active") {
+						const { fromIso, toIso } = importedListWindow(
+							now,
+							settings.missedAlertHours,
+						);
+						for (const row of listImportedInWindowDb(fromIso, toIso)) {
+							items.push(buildImportedListItem(row));
+						}
+					}
+
 					return items
 						.filter((item) =>
 							query ? item.name.toLowerCase().includes(query) : true,
@@ -214,6 +268,9 @@ export function createReminderRPC(
 						});
 				},
 				getReminder: ({ id }) => {
+					if (isImportedListId(id)) {
+						throw new Error("Eventos importados são somente leitura");
+					}
 					const reminder = getReminderById(id);
 					if (!reminder) throw new Error("Lembrete não encontrado");
 					if (isOnceFinished(reminder) || reminder.is_completed) {
@@ -242,16 +299,21 @@ export function createReminderRPC(
 					return { ok: true };
 				},
 				deleteReminder: ({ id }) => {
+					if (isImportedListId(id)) {
+						return { ok: false };
+					}
 					deleteReminder(id);
 					emitChanged("delete");
 					return { ok: true };
 				},
 				completeReminder: ({ id, occurrenceAt }) => {
+					if (isImportedListId(id)) return { ok: false };
 					completeReminder(id, occurrenceAt);
 					emitChanged("complete");
 					return { ok: true };
 				},
 				snoozeReminder: ({ id, occurrenceAt, snoozeMinutes }) => {
+					if (isImportedListId(id)) return { ok: false };
 					snoozeReminder(id, occurrenceAt, 0, snoozeMinutes);
 					emitChanged("snooze");
 					return { ok: true };
@@ -260,10 +322,13 @@ export function createReminderRPC(
 				updateSettings: ({ partial }) => {
 					const next = saveSettings(partial);
 					if (partial.autostart !== undefined) {
-						setAutostart(next.autostart, execPath);
+						setAutostart(next.autostart);
 					}
 					if (partial.pinned !== undefined) {
 						onPinnedChange?.(next.pinned);
+					}
+					if (partial.theme !== undefined || partial.themePack !== undefined) {
+						onThemeChange?.();
 					}
 					emitChanged("settings");
 					return next;
@@ -275,6 +340,23 @@ export function createReminderRPC(
 				hidePopover: () => {
 					onHide?.();
 					return { ok: true };
+				},
+				importIcs: ({ text }) => {
+					const prepared = prepareIcsImport(text);
+					if (prepared.error) {
+						return {
+							imported: 0,
+							skipped: prepared.skipped,
+							error: prepared.error,
+						};
+					}
+					const { imported, updated } = upsertImportedEventsDb(prepared.events);
+					runSchedulerTick();
+					emitChanged("import-ics");
+					return {
+						imported: imported + updated,
+						skipped: prepared.skipped,
+					};
 				},
 			},
 			messages: {},

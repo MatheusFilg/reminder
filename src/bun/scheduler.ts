@@ -6,12 +6,17 @@ import {
 	getCompletedOccurrences,
 	getSettings,
 	getSnoozeUntil,
+	listImportedInWindowDb,
 	markAlertFired,
+	markImportedAlertFiredDb,
 	wasAlertFired,
+	wasImportedAlertFiredDb,
 } from "./db";
+import { ICS_IMPORT_WINDOW_DAYS } from "./ics";
+import { IMPORTED_ALERT_OFFSETS_MINUTES } from "./importedEvents";
 import { getAlertFireTime, getNextOccurrence, isAllDay, startOfDay } from "./recurrence";
-import { showReminderNotification } from "./notifications";
-import type { ReminderRow } from "./types";
+import { showImportedEventNotification, showReminderNotification } from "./notifications";
+import type { ImportedEventRow, ReminderRow } from "./types";
 
 type TickListener = () => void;
 
@@ -49,6 +54,60 @@ function shouldFire(
 	if (now.getTime() - fireAt.getTime() > missedMs) return false;
 
 	return true;
+}
+
+function shouldFireImported(
+	event: ImportedEventRow,
+	occurrenceAt: string,
+	minutesBefore: number,
+	now: Date,
+	missedHours: number,
+): boolean {
+	if (wasImportedAlertFiredDb(event.id, occurrenceAt, minutesBefore)) return false;
+
+	const fireAt = getAlertFireTime(new Date(occurrenceAt), minutesBefore);
+	if (fireAt > now) return false;
+
+	const missedMs = missedHours * 60 * 60 * 1000;
+	if (now.getTime() - fireAt.getTime() > missedMs) return false;
+
+	return true;
+}
+
+function importedListWindow(now: Date, missedHours: number) {
+	const from = new Date(now.getTime() - missedHours * 60 * 60 * 1000);
+	const to = new Date(now);
+	to.setDate(to.getDate() + ICS_IMPORT_WINDOW_DAYS);
+	return { fromIso: from.toISOString(), toIso: to.toISOString() };
+}
+
+function tickImportedEvents(now: Date, missedHours: number): boolean {
+	let fired = false;
+	const { fromIso, toIso } = importedListWindow(now, missedHours);
+	const events = listImportedInWindowDb(fromIso, toIso);
+
+	for (const event of events) {
+		const occurrenceAt = event.starts_at;
+		if (event.all_day === 1) {
+			const occurrence = new Date(occurrenceAt);
+			if (startOfDay(now).getTime() !== startOfDay(occurrence).getTime()) continue;
+			if (wasImportedAlertFiredDb(event.id, occurrenceAt, ALL_DAY_OPEN_ALERT)) continue;
+			void showImportedEventNotification(event, occurrenceAt, ALL_DAY_OPEN_ALERT);
+			markImportedAlertFiredDb(event.id, occurrenceAt, ALL_DAY_OPEN_ALERT);
+			fired = true;
+			continue;
+		}
+
+		for (const minutesBefore of IMPORTED_ALERT_OFFSETS_MINUTES) {
+			if (shouldFireImported(event, occurrenceAt, minutesBefore, now, missedHours)) {
+				void showImportedEventNotification(event, occurrenceAt, minutesBefore);
+				markImportedAlertFiredDb(event.id, occurrenceAt, minutesBefore);
+				fired = true;
+			}
+		}
+	}
+
+	return fired;
 }
 
 export const ALL_DAY_OPEN_ALERT = -1;
@@ -136,6 +195,10 @@ export function runSchedulerTick() {
 			completeReminder(reminder.id, occurrenceAt);
 			fired = true;
 		}
+	}
+
+	if (tickImportedEvents(now, settings.missedAlertHours)) {
+		fired = true;
 	}
 
 	if (fired) notifyListeners();

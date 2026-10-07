@@ -15,6 +15,8 @@ interface ReminderListItem {
 	alertOffsetsMinutes: number[];
 	isPaused: boolean;
 	allDay: boolean;
+	source?: "local" | "ics";
+	readOnly?: boolean;
 }
 
 interface ReminderInput {
@@ -29,11 +31,16 @@ interface ReminderInput {
 	allDay: boolean;
 }
 
+type ThemeMode = "system" | "light" | "dark";
+type ThemePackId = "default" | "paradox";
+
 interface AppSettings {
 	autostart: boolean;
 	pausedGlobally: boolean;
 	missedAlertHours: number;
 	pinned: boolean;
+	theme: ThemeMode;
+	themePack: ThemePackId;
 }
 
 interface AlertPreset {
@@ -88,6 +95,10 @@ type ReminderRPC = {
 				response: { alerts: AlertPreset[]; snoozes: SnoozePreset[] };
 			};
 			hidePopover: { params: {}; response: { ok: true } };
+			importIcs: {
+				params: { text: string };
+				response: { imported: number; skipped: number; error?: string };
+			};
 		};
 		messages: {};
 	};
@@ -131,6 +142,13 @@ const rpc = Electroview.defineRPC<ReminderRPC>({
 		requests: {},
 		messages: {
 			"reminders-changed": ({ reason }) => {
+				if (reason === "theme") {
+					void electrobun.rpc!.request.getSettings({}).then((settings) => {
+						state.settings = settings;
+						applyThemeFromSettings(settings);
+					});
+					return;
+				}
 				void refresh();
 				if (reason === "open-create") openModal("create");
 				if (reason === "open-settings") state.view = "settings";
@@ -395,6 +413,20 @@ function defaultForm(): ReminderInput {
 
 let refreshSeq = 0;
 
+function applyThemeFromSettings(settings: AppSettings) {
+	const root = document.documentElement;
+	if (settings.theme === "system") {
+		root.removeAttribute("data-theme");
+	} else {
+		root.setAttribute("data-theme", settings.theme);
+	}
+	if (settings.themePack === "default") {
+		root.removeAttribute("data-pack");
+	} else {
+		root.setAttribute("data-pack", settings.themePack);
+	}
+}
+
 async function refresh(mode: "full" | "list" = "full") {
 	const seq = ++refreshSeq;
 	const [items, settings, presets] = await Promise.all([
@@ -410,6 +442,7 @@ async function refresh(mode: "full" | "list" = "full") {
 	state.settings = settings;
 	state.alerts = presets.alerts;
 	state.snoozes = presets.snoozes;
+	applyThemeFromSettings(settings);
 
 	if (mode === "list" && state.view === "list") {
 		patchList();
@@ -515,7 +548,10 @@ function listItemsHtml() {
 						(item) => `
           <div class="item" data-id="${item.id}">
             <div class="item-main">
-              <p class="item-name">${escapeHtml(item.name)}</p>
+              <p class="item-name">
+                ${escapeHtml(item.name)}
+                ${item.readOnly ? `<span class="badge-imported">Importado</span>` : ""}
+              </p>
               <p class="item-meta">${escapeHtml(item.nextOccurrenceLabel)}</p>
               ${
 								item.description
@@ -525,11 +561,15 @@ function listItemsHtml() {
             </div>
             <div class="item-actions">
               ${
-								state.filter === "completed"
+								state.filter === "completed" || item.readOnly
 									? ""
 									: `<button class="action-btn" data-edit="${item.id}" title="Editar" aria-label="Editar">${icon("pencil", 16)}</button>`
 							}
-              <button class="action-btn danger" data-delete="${item.id}" title="Excluir" aria-label="Excluir">${icon("trash", 16)}</button>
+              ${
+								item.readOnly
+									? ""
+									: `<button class="action-btn danger" data-delete="${item.id}" title="Excluir" aria-label="Excluir">${icon("trash", 16)}</button>`
+							}
             </div>
           </div>`,
 					)
@@ -588,6 +628,35 @@ function renderSettings() {
           <span class="stepper-unit">h</span>
           <button type="button" class="stepper-btn" id="missed-inc" aria-label="Aumentar horas">${icon("plus", 14)}</button>
         </div>
+      </div>
+      <div class="setting-card">
+        <span class="setting-copy">
+          <span class="setting-title">Aparência</span>
+          <span class="setting-hint">Claro, escuro ou seguir o sistema</span>
+        </span>
+        <select id="theme-mode" class="setting-select" aria-label="Tema">
+          <option value="system" ${s.theme === "system" ? "selected" : ""}>Sistema</option>
+          <option value="light" ${s.theme === "light" ? "selected" : ""}>Claro</option>
+          <option value="dark" ${s.theme === "dark" ? "selected" : ""}>Escuro</option>
+        </select>
+      </div>
+      <label class="setting-card" for="theme-paradox">
+        <span class="setting-copy">
+          <span class="setting-title">Tema violeta</span>
+          <span class="setting-hint">Paleta sci-fi, som e ícone da bandeja (pack Paradox)</span>
+        </span>
+        <span class="toggle">
+          <input type="checkbox" id="theme-paradox" ${s.themePack === "paradox" ? "checked" : ""} />
+          <span class="toggle-ui" aria-hidden="true"></span>
+        </span>
+      </label>
+      <div class="setting-card setting-card-column">
+        <span class="setting-copy">
+          <span class="setting-title">Importar calendário (.ics)</span>
+          <span class="setting-hint">Próximos 90 dias, somente leitura. Recorrências (RRULE) são ignoradas.</span>
+        </span>
+        <input type="file" id="ics-file" accept=".ics,text/calendar" class="setting-file" />
+        <p class="import-status" id="import-status" hidden></p>
       </div>
       <p class="setting-about">Reminder v0.1.0</p>
     </div>
@@ -696,6 +765,48 @@ function bindMainEvents() {
 	document
 		.getElementById("missed-inc")
 		?.addEventListener("click", () => void nudgeMissed(1));
+	document.getElementById("theme-mode")?.addEventListener("change", async (e) => {
+		const theme = (e.target as HTMLSelectElement).value as ThemeMode;
+		state.settings = await electrobun.rpc!.request.updateSettings({
+			partial: { theme },
+		});
+		applyThemeFromSettings(state.settings);
+	});
+	document
+		.getElementById("theme-paradox")
+		?.addEventListener("change", async (e) => {
+			const checked = (e.target as HTMLInputElement).checked;
+			state.settings = await electrobun.rpc!.request.updateSettings({
+				partial: { themePack: checked ? "paradox" : "default" },
+			});
+			applyThemeFromSettings(state.settings);
+		});
+	document.getElementById("ics-file")?.addEventListener("change", async (e) => {
+		const input = e.target as HTMLInputElement;
+		const file = input.files?.[0];
+		const status = document.getElementById("import-status");
+		if (!file || !status) return;
+		status.hidden = false;
+		status.textContent = "Importando…";
+		try {
+			const text = await file.text();
+			const result = await electrobun.rpc!.request.importIcs({ text });
+			if (result.error) {
+				status.textContent = result.error;
+				status.classList.add("import-error");
+			} else {
+				status.classList.remove("import-error");
+				status.textContent = `${result.imported} evento(s) importado(s)${
+					result.skipped ? `, ${result.skipped} ignorado(s)` : ""
+				}.`;
+				await refresh();
+			}
+		} catch {
+			status.textContent = "Não foi possível importar o arquivo.";
+			status.classList.add("import-error");
+		}
+		input.value = "";
+	});
 }
 
 function bindListActions() {

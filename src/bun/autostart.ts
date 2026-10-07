@@ -1,5 +1,5 @@
 import { homedir } from "os";
-import { join } from "path";
+import { dirname, join } from "path";
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "fs";
 
 const APP_ID = "dev.reminder.app";
@@ -9,21 +9,35 @@ function autostartDir() {
 	return join(homedir(), ".config", "autostart");
 }
 
-function desktopFilePath(execPath: string) {
+/** systemd-xdg-autostart exige um binário executável, não o JS empacotado. */
+export function resolveAutostartExec(binPath = process.execPath): string {
+	const launcher = join(dirname(binPath), "launcher");
+	if (existsSync(launcher)) return launcher;
+	return binPath;
+}
+
+export function buildDesktopEntry(execPath: string) {
+	const escaped = execPath.replaceAll("'", "'\\''");
+	// sleep: no boot o Screen do ElectroBun ainda não tem bounds (KDE/systemd ignora Delay).
 	return `[Desktop Entry]
 Type=Application
 Name=Reminder
 Comment=App de lembretes na bandeja
-Exec=${execPath}
+Exec=/bin/sh -c "sleep 2; exec '${escaped}'"
 Icon=dev.reminder.app
 Terminal=false
+Hidden=false
 Categories=Utility;
 X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=2
 `;
 }
 
-export function setAutostart(enabled: boolean, execPath?: string) {
-	const dir = autostartDir();
+export function setAutostart(
+	enabled: boolean,
+	execPath: string = resolveAutostartExec(),
+	dir: string = autostartDir(),
+) {
 	const file = join(dir, DESKTOP_NAME);
 	if (!enabled) {
 		if (existsSync(file)) unlinkSync(file);
@@ -31,7 +45,7 @@ export function setAutostart(enabled: boolean, execPath?: string) {
 	}
 	if (!execPath) return;
 	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-	writeFileSync(file, desktopFilePath(execPath), "utf8");
+	writeFileSync(file, buildDesktopEntry(execPath), "utf8");
 }
 
 export { APP_ID };

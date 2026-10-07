@@ -5,6 +5,7 @@ import { createReminderRPC } from "./rpc";
 import { notifyAllDayRemindersOnOpen, startScheduler } from "./scheduler";
 import { applyLinuxRoundedCorners } from "./roundX11";
 import { installLinuxIcons } from "./icons";
+import { resolveTrayIconPath } from "./themePack";
 import { join } from "path";
 
 const POPOVER_WIDTH = 440;
@@ -18,14 +19,32 @@ let popoverWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let ignoreBlurUntil = 0;
 
+const FALLBACK_POS = { x: 0, y: 0 };
+
+function isRect(value: unknown): value is { x: number; y: number; width: number } {
+	if (!value || typeof value !== "object") return false;
+	const rect = value as { x?: unknown; y?: unknown; width?: unknown };
+	return (
+		typeof rect.x === "number" &&
+		typeof rect.y === "number" &&
+		typeof rect.width === "number"
+	);
+}
+
 function getPopoverPosition() {
-	const display = Screen.getPrimaryDisplay();
-	const bounds = display.bounds;
-	const work = display.workArea ?? bounds;
-	const panelOffset = work.y > bounds.y ? work.y : bounds.y + 36;
-	const x = bounds.x + bounds.width - POPOVER_WIDTH - ANCHOR_RIGHT;
-	const y = panelOffset + ANCHOR_TOP;
-	return { x, y };
+	try {
+		const display = Screen.getPrimaryDisplay?.() ?? null;
+		if (!display || !isRect(display.bounds)) return FALLBACK_POS;
+		const bounds = display.bounds;
+		const work = isRect(display.workArea) ? display.workArea : bounds;
+		const panelOffset = work.y > bounds.y ? work.y : bounds.y + 36;
+		return {
+			x: bounds.x + bounds.width - POPOVER_WIDTH - ANCHOR_RIGHT,
+			y: panelOffset + ANCHOR_TOP,
+		};
+	} catch {
+		return FALLBACK_POS;
+	}
 }
 
 function positionPopover() {
@@ -91,6 +110,19 @@ function refreshTrayMenu() {
 	tray?.setMenu(buildTrayMenu());
 }
 
+const viewsAssetsRoot = join(PATHS.VIEWS_FOLDER, "assets");
+
+function refreshTrayImage() {
+	if (!tray) return;
+	const { themePack } = getSettings();
+	const iconPath = resolveTrayIconPath(themePack, viewsAssetsRoot);
+	try {
+		tray.setImage(iconPath);
+	} catch {
+		tray.setImage("views://assets/dev.reminder.app.png");
+	}
+}
+
 function handleTrayAction(action: string) {
 	switch (action) {
 		case "open":
@@ -118,7 +150,6 @@ function handleTrayAction(action: string) {
 	}
 }
 
-const execPath = process.argv[1] ?? "reminder";
 const initialPos = getPopoverPosition();
 
 popoverWindow = new BrowserWindow({
@@ -126,9 +157,12 @@ popoverWindow = new BrowserWindow({
 	url: "views://mainview/index.html",
 	rpc: createReminderRPC(
 		() => popoverWindow?.webview,
-		execPath,
 		hidePopover,
 		setPinned,
+		() => {
+			refreshTrayImage();
+			emitUiEvent("theme");
+		},
 	),
 	titleBarStyle: "hidden",
 	transparent: false,
@@ -175,6 +209,7 @@ tray = new Tray({
 tray.setImage(trayIconPath);
 
 tray.setMenu(buildTrayMenu());
+refreshTrayImage();
 
 tray.on("tray-clicked", (event: { data?: { action?: string } }) => {
 	const action = event.data?.action;
@@ -191,7 +226,7 @@ tray.on("tray-clicked", (event: { data?: { action?: string } }) => {
 });
 
 const settings = getSettings();
-setAutostart(settings.autostart, execPath);
+setAutostart(settings.autostart);
 startScheduler();
 if (settings.pinned) {
 	showPopover();

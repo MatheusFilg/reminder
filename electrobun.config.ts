@@ -25,6 +25,8 @@ export default {
 			"assets/tray-icon.png": "views/assets/tray-icon.png",
 			"assets/icon-128.png": "views/assets/app-icon.png",
 			"assets/dev.reminder.app.png": "views/assets/dev.reminder.app.png",
+			"assets/themes/default/tray.png": "views/assets/themes/default/tray.png",
+			"assets/themes/paradox/tray.png": "views/assets/themes/paradox/tray.png",
 		},
 		mac: { bundleCEF: false },
 		linux: { bundleCEF: false, icon: "assets/icon.png" },

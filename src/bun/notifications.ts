@@ -1,9 +1,33 @@
-import type { ReminderRow } from "./types";
+import { PATHS } from "electrobun/bun";
+import { join } from "path";
+import { getSettings } from "./db";
+import type { ImportedEventRow, ReminderRow } from "./types";
 import { formatOccurrenceLabel } from "./recurrence";
+import { resolveNotificationSoundPath } from "./themePack";
 
 const ALL_DAY_OPEN_ALERT = -1;
 
 async function playLinuxNotificationSound() {
+	const { themePack } = getSettings();
+	const custom = resolveNotificationSoundPath(
+		themePack,
+		join(PATHS.VIEWS_FOLDER, "assets"),
+	);
+	if (custom) {
+		try {
+			const proc = Bun.spawn(["paplay", custom], {
+				stdout: "ignore",
+				stderr: "ignore",
+			});
+			const exited = await Promise.race([
+				proc.exited,
+				Bun.sleep(500).then(() => null),
+			]);
+			if (exited === 0) return;
+		} catch {
+			// fallback below
+		}
+	}
 	try {
 		const proc = Bun.spawn(["canberra-gtk-play", "-i", "message-new-instant"], {
 			stdout: "ignore",
@@ -46,6 +70,51 @@ async function showLinuxNotification(title: string, body: string) {
 		{ stdout: "ignore", stderr: "ignore" },
 	);
 	await proc.exited;
+}
+
+function importedNotificationBody(
+	event: ImportedEventRow,
+	when: string,
+	occurrence: Date,
+) {
+	const whenLine = `Evento importado ${when} · ${formatOccurrenceLabel(occurrence)}`;
+	const description = event.description.trim();
+	return description ? `${description}\n${whenLine}` : whenLine;
+}
+
+export async function showImportedEventNotification(
+	event: ImportedEventRow,
+	occurrenceAt: string,
+	minutesBefore: number,
+) {
+	const occurrence = new Date(occurrenceAt);
+	const when =
+		minutesBefore === ALL_DAY_OPEN_ALERT || minutesBefore === -1
+			? "hoje · dia todo"
+			: minutesBefore === 0
+				? "agora"
+				: minutesBefore < 60
+					? `em ${minutesBefore} min`
+					: minutesBefore === 60
+						? "em 1 hora"
+						: formatOccurrenceLabel(occurrence);
+
+	const title = event.summary;
+	const body = importedNotificationBody(event, when, occurrence);
+
+	if (process.platform === "linux") {
+		await showLinuxNotification(title, body);
+		await playLinuxNotificationSound();
+		return;
+	}
+
+	const { Utils } = await import("electrobun/bun");
+	Utils.showNotification({
+		title,
+		body,
+		subtitle: "Reminder · Importado",
+		silent: false,
+	});
 }
 
 export async function showReminderNotification(

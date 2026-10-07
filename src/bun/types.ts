@@ -31,6 +31,21 @@ export interface ReminderInput {
 	allDay: boolean;
 }
 
+export type ImportedEventSource = "ics";
+
+export interface ImportedEventRow {
+	id: number;
+	external_id: string;
+	summary: string;
+	description: string;
+	starts_at: string;
+	ends_at: string | null;
+	all_day: number;
+	source: ImportedEventSource;
+	imported_at: string;
+	raw_snippet: string | null;
+}
+
 export interface ReminderListItem {
 	id: number;
 	name: string;
@@ -42,13 +57,20 @@ export interface ReminderListItem {
 	alertOffsetsMinutes: number[];
 	isPaused: boolean;
 	allDay: boolean;
+	source?: "local" | "ics";
+	readOnly?: boolean;
 }
+
+export type ThemeMode = "system" | "light" | "dark";
+export type ThemePackId = "default" | "paradox";
 
 export interface AppSettings {
 	autostart: boolean;
 	pausedGlobally: boolean;
 	missedAlertHours: number;
 	pinned: boolean;
+	theme: ThemeMode;
+	themePack: ThemePackId;
 }
 
 export interface AlertPreset {
