@@ -4,5 +4,7 @@ dist/
 artifacts/
 bun.lockb
 prototypes/
+portal-preview/.cache/
 *.db
 .DS_Store
+.secrets/
