@@ -853,15 +853,13 @@ function renderSettingsHub(s: AppSettings) {
         ${settingsHubRow(
 					"notifications",
 					"Notificações",
-					`Avisos perdidos: até ${s.missedAlertHours} h`,
+					hiddenCount > 0
+						? `Avisos perdidos: até ${s.missedAlertHours} h · ${hiddenCount} oculta(s)`
+						: `Avisos perdidos: até ${s.missedAlertHours} h`,
+					hiddenCount > 0 ? hiddenCount : undefined,
 				)}
         ${settingsHubRow("appearance", "Aparência", appearanceSub)}
-        ${settingsHubRow(
-					"calendars",
-					"Calendários",
-					googleCalendarHubSubtitle(g),
-					hiddenCount,
-				)}
+        ${settingsHubRow("calendars", "Calendários", googleCalendarHubSubtitle(g))}
         ${settingsHubRow(
 					"general",
 					"Geral",
@@ -872,6 +870,7 @@ function renderSettingsHub(s: AppSettings) {
 }
 
 function renderSettingsNotifications(s: AppSettings) {
+	const rules = state.importedIgnoreRules;
 	return `
     <div class="settings">
       <div class="setting-card">
@@ -885,6 +884,27 @@ function renderSettingsNotifications(s: AppSettings) {
           <span class="stepper-unit">h</span>
           <button type="button" class="stepper-btn" id="missed-inc" aria-label="Aumentar horas">${icon("plus", 14)}</button>
         </div>
+      </div>
+      <div class="setting-card setting-card-column">
+        <span class="setting-copy">
+          <span class="setting-title">Notificações ocultadas</span>
+          <span class="setting-hint">Importados com título semelhante não aparecem nem geram aviso após nova sync.</span>
+        </span>
+        ${
+					rules.length > 0
+						? `<ul class="ignore-rules-list">
+          ${rules
+						.map(
+							(rule) => `
+            <li class="ignore-rule">
+              <span class="ignore-rule-title">${escapeHtml(rule.sampleTitle)}</span>
+              <button type="button" class="btn btn-danger ignore-rule-remove" data-ignore-rule="${rule.id}">Permitir de novo</button>
+            </li>`,
+						)
+						.join("")}
+        </ul>`
+						: `<p class="settings-empty">Nenhuma notificação ocultada.</p>`
+				}
       </div>
     </div>`;
 }
@@ -935,7 +955,6 @@ function renderSettingsGeneral(s: AppSettings) {
 
 function renderSettingsCalendars() {
 	const g = state.googleCalendar;
-	const rules = state.importedIgnoreRules;
 	return `
     <div class="settings">
       <div class="setting-card setting-card-column">
@@ -965,27 +984,6 @@ function renderSettingsCalendars() {
         </span>
         <input type="file" id="ics-file" accept=".ics,text/calendar" class="setting-file" />
         <p class="import-status" id="import-status" hidden></p>
-      </div>
-      <div class="setting-card setting-card-column">
-        <span class="setting-copy">
-          <span class="setting-title">Importados ocultos</span>
-          <span class="setting-hint">Títulos semelhantes não aparecem nem geram aviso após nova sync.</span>
-        </span>
-        ${
-					rules.length > 0
-						? `<ul class="ignore-rules-list">
-          ${rules
-						.map(
-							(rule) => `
-            <li class="ignore-rule">
-              <span class="ignore-rule-title">${escapeHtml(rule.sampleTitle)}</span>
-              <button type="button" class="btn btn-danger ignore-rule-remove" data-ignore-rule="${rule.id}">Permitir de novo</button>
-            </li>`,
-						)
-						.join("")}
-        </ul>`
-						: `<p class="settings-empty">Nenhum importado oculto.</p>`
-				}
       </div>
     </div>`;
 }
