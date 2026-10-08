@@ -4,6 +4,7 @@ import { getSettings } from "./db";
 import type { ImportedEventRow, ReminderRow } from "./types";
 import { formatOccurrenceLabel } from "./recurrence";
 import { formatImportedEventTitle } from "./importedDisplay";
+import { showLinuxDesktopNotification } from "./linuxDesktopNotify";
 import {
 	resolveNotificationSoundPath,
 	resolveReminderSavedSoundPath,
@@ -98,19 +99,12 @@ function notificationBody(reminder: ReminderRow, when: string, occurrence: Date)
 	return description ? `${description}\n${whenLine}` : whenLine;
 }
 
-async function showLinuxNotification(title: string, body: string) {
-	const proc = Bun.spawn(
-		[
-			"notify-send",
-			"--app-name=Reminder",
-			"--icon=appointment-soon",
-			"--urgency=normal",
-			title,
-			body,
-		],
-		{ stdout: "ignore", stderr: "ignore" },
-	);
-	await proc.exited;
+async function showLinuxNotification(
+	title: string,
+	body: string,
+	subtitle = "Reminder",
+) {
+	await showLinuxDesktopNotification(title, body, subtitle);
 }
 
 function importedNotificationBody(
@@ -146,7 +140,7 @@ export async function showImportedEventNotification(
 		title.length < fullTitle.length ? title : fullTitle;
 
 	if (process.platform === "linux") {
-		await showLinuxNotification(notifyTitle, body);
+		await showLinuxNotification(notifyTitle, body, "Reminder · Importado");
 		await playLinuxNotificationSound();
 		return;
 	}
