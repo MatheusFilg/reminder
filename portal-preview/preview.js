@@ -39,6 +39,12 @@ function resolvedThemeMode(theme) {
 		: "light";
 }
 
+function appIconSrc(themePack) {
+	return themePack === "paradox"
+		? "/assets/themes/paradox/app-icon.png"
+		: "/assets/app-icon.png";
+}
+
 function applyTheme() {
 	const root = document.documentElement;
 	const { theme, themePack } = state.settings;
@@ -47,6 +53,8 @@ function applyTheme() {
 	root.setAttribute("data-theme-resolved", resolvedThemeMode(theme));
 	if (themePack === "default") root.removeAttribute("data-pack");
 	else root.setAttribute("data-pack", themePack);
+	const logo = document.querySelector(".header-logo");
+	if (logo) logo.src = appIconSrc(themePack);
 }
 
 function renderList() {
@@ -128,7 +136,7 @@ function render() {
       <div class="header-left">
         ${state.view === "settings" ? `<button class="icon-btn" id="back-btn" type="button" title="Voltar">←</button>` : ""}
         <div class="header-brand">
-          <img class="header-logo" src="/assets/app-icon.png" alt="" width="36" height="36" />
+          <img class="header-logo" src="${appIconSrc(state.settings.themePack)}" alt="" width="36" height="36" />
           <div class="header-title">
             <h1>Reminder</h1>
             <span class="header-status">${paused ? "Notificações pausadas" : "Notificações ativas"}</span>

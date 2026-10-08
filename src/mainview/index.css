@@ -164,6 +164,10 @@ body {
 	display: block;
 }
 
+:root[data-pack="paradox"] .header-logo {
+	border-radius: 8px;
+}
+
 .header-title {
 	display: flex;
 	flex-direction: column;

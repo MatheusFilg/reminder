@@ -10,6 +10,10 @@ const routes: Record<string, string> = {
 	"/preview.js": join(root, "preview.js"),
 	"/mainview/index.css": join(repo, "src/mainview/index.css"),
 	"/assets/app-icon.png": join(repo, "assets/icon-128.png"),
+	"/assets/themes/paradox/app-icon.png": join(
+		repo,
+		"assets/themes/paradox/app-icon.png",
+	),
 };
 
 Bun.serve({

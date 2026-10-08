@@ -27,6 +27,8 @@ export default {
 			"assets/dev.reminder.app.png": "views/assets/dev.reminder.app.png",
 			"assets/themes/default/tray.png": "views/assets/themes/default/tray.png",
 			"assets/themes/paradox/tray.png": "views/assets/themes/paradox/tray.png",
+			"assets/themes/paradox/app-icon.png":
+				"views/assets/themes/paradox/app-icon.png",
 		},
 		mac: { bundleCEF: false },
 		linux: { bundleCEF: false, icon: "assets/icon.png" },

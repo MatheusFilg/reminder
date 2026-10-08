@@ -33,6 +33,14 @@ interface ReminderInput {
 
 type ThemeMode = "system" | "light" | "dark";
 type ThemePackId = "default" | "paradox";
+
+function themePackAppIconUri(pack: ThemePackId): string {
+	if (pack === "paradox") {
+		return "views://assets/themes/paradox/app-icon.png";
+	}
+	return "views://assets/app-icon.png";
+}
+
 type SettingsSection =
 	| null
 	| "general"
@@ -542,6 +550,8 @@ function applyThemeFromSettings(settings: AppSettings) {
 	} else {
 		root.setAttribute("data-pack", settings.themePack);
 	}
+	const logo = document.querySelector<HTMLImageElement>(".header-logo");
+	if (logo) logo.src = themePackAppIconUri(settings.themePack);
 }
 
 function bindSystemThemeListener(theme: ThemeMode) {
@@ -1063,7 +1073,7 @@ function render() {
       <div class="header-left">
         ${state.view === "settings" ? `<button class="icon-btn" id="back-btn" title="Voltar">${icon("arrowLeft")}</button>` : ""}
         <div class="header-brand">
-          <img class="header-logo" src="views://assets/app-icon.png" alt="" width="36" height="36" />
+          <img class="header-logo" src="${themePackAppIconUri(state.settings?.themePack ?? "default")}" alt="" width="36" height="36" />
           <div class="header-title">
             <h1>Reminder</h1>
             <span class="header-status">
