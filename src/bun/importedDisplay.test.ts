@@ -22,4 +22,13 @@ describe("formatImportedEventTitle", () => {
 		expect(r.tags).toEqual(["Feriado"]);
 		expect(r.title).toBe("Municipal");
 	});
+
+	test("remove prefixo de e-mail do Google", () => {
+		const r = formatImportedEventTitle(
+			"matheus.almeida@mv.com.br: CONSULTA ORTOPEDIA",
+		);
+		expect(r.title).toBe("CONSULTA ORTOPEDIA");
+		expect(r.fullTitle).toContain("@mv.com.br");
+		expect(r.tags).toEqual([]);
+	});
 });

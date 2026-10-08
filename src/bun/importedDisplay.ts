@@ -7,20 +7,27 @@ export interface ImportedDisplayTitle {
 	tags: string[];
 }
 
+/** Remove prefixo `email@dominio: ` comum em eventos do Google (conta única). */
+export function stripLeadingEmailPrefix(title: string): string {
+	const trimmed = title.trim();
+	const match = trimmed.match(/^[^\s@]+@[^\s@]+\.[^\s@]+:\s*(.+)$/);
+	return match ? match[1].trim() : trimmed;
+}
+
 /**
  * Normaliza títulos de eventos importados (calendário/ICS).
  * Ex.: "Feriados no Brasil: Nossa Senhora de Aparecida" → tag Feriado + "Nossa Senhora de Aparecida".
  */
 export function formatImportedEventTitle(summary: string): ImportedDisplayTitle {
 	const fullTitle = summary.trim() || "(Sem título)";
-	let title = fullTitle;
+	let title = stripLeadingEmailPrefix(fullTitle);
 	const tags: string[] = [];
 
 	if (/feriado/i.test(fullTitle)) {
 		tags.push("Feriado");
-		const colon = fullTitle.indexOf(":");
+		const colon = title.indexOf(":");
 		if (colon > 0 && colon < 56) {
-			title = fullTitle.slice(colon + 1).trim();
+			title = title.slice(colon + 1).trim();
 		}
 		title = title
 			.replace(/^feriados?\s*(no\s+brasil)?\s*[-–—:]\s*/i, "")
@@ -28,7 +35,7 @@ export function formatImportedEventTitle(summary: string): ImportedDisplayTitle 
 			.trim();
 	}
 
-	if (!title) title = fullTitle;
+	if (!title) title = stripLeadingEmailPrefix(fullTitle) || fullTitle;
 
 	return { title, fullTitle, tags };
 }
