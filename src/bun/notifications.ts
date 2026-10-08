@@ -10,9 +10,21 @@ import {
 
 const ALL_DAY_OPEN_ALERT = -1;
 
-async function playLinuxSoundFile(path: string, waitMs = 500): Promise<boolean> {
+/** Volume linear 0–65536 (paplay). Sons do pack Paradox um pouco abaixo do máximo. */
+const PARADOX_ALERT_VOLUME = Math.round(65536 * 0.6);
+const PARADOX_SAVE_VOLUME = Math.round(65536 * 0.52);
+
+async function playLinuxSoundFile(
+	path: string,
+	waitMs = 500,
+	volume?: number,
+): Promise<boolean> {
 	try {
-		const proc = Bun.spawn(["paplay", path], {
+		const args =
+			volume !== undefined
+				? ["paplay", `--volume=${volume}`, path]
+				: ["paplay", path];
+		const proc = Bun.spawn(args, {
 			stdout: "ignore",
 			stderr: "ignore",
 		});
@@ -32,7 +44,15 @@ async function playLinuxNotificationSound() {
 		themePack,
 		join(PATHS.VIEWS_FOLDER, "assets"),
 	);
-	if (custom && (await playLinuxSoundFile(custom))) return;
+	if (
+		custom &&
+		(await playLinuxSoundFile(
+			custom,
+			500,
+			themePack === "paradox" ? PARADOX_ALERT_VOLUME : undefined,
+		))
+	)
+		return;
 	try {
 		const proc = Bun.spawn(["canberra-gtk-play", "-i", "message-new-instant"], {
 			stdout: "ignore",
@@ -65,7 +85,9 @@ export async function playReminderSavedSound() {
 	);
 	if (!custom) return;
 	if (process.platform === "linux") {
-		await playLinuxSoundFile(custom, 3000);
+		const volume =
+			themePack === "paradox" ? PARADOX_SAVE_VOLUME : undefined;
+		await playLinuxSoundFile(custom, 3000, volume);
 	}
 }
 
