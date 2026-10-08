@@ -190,6 +190,7 @@ const state = {
 	settingsSection: null as SettingsSection,
 	filter: "active" as ReminderFilter,
 	search: "",
+	searchOpen: false,
 	items: [] as ReminderListItem[],
 	settings: null as AppSettings | null,
 	alerts: [] as AlertPreset[],
@@ -276,6 +277,8 @@ const ICONS: Record<string, string> = {
 	eyeOff: `<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>`,
 	refreshCw: `<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>`,
 	link2Off: `<path d="M9 17H7A5 5 0 0 1 7 7"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/>`,
+	search: `<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>`,
+	x: `<path d="M18 6 6 18"/><path d="m6 6 12 12"/>`,
 };
 
 function icon(name: keyof typeof ICONS, size = 18) {
@@ -845,12 +848,28 @@ function listItemsHtml() {
 }
 
 function renderList() {
+	const searchActive = state.searchOpen;
 	return `
     <div class="toolbar">
-      <input class="search" type="search" placeholder="Buscar..." value="${escapeHtml(state.search)}" id="search-input" />
-      <div class="tabs">
-        <button class="tab ${state.filter === "active" ? "active" : ""}" data-filter="active">Ativos</button>
-        <button class="tab ${state.filter === "completed" ? "active" : ""}" data-filter="completed">Concluídos</button>
+      ${
+				searchActive
+					? `
+      <div class="toolbar-search-row">
+        <input class="search" type="search" placeholder="Buscar..." value="${escapeHtml(state.search)}" id="search-input" autocomplete="off" />
+        <button type="button" class="icon-btn" id="search-close" title="Fechar busca" aria-label="Fechar busca">${icon("x", 16)}</button>
+      </div>`
+					: ""
+			}
+      <div class="toolbar-row">
+        ${
+					!searchActive
+						? `<button type="button" class="icon-btn search-toggle ${state.search.trim() ? "on" : ""}" id="search-toggle" title="Buscar" aria-label="Buscar">${icon("search", 18)}</button>`
+						: ""
+				}
+        <div class="tabs">
+          <button class="tab ${state.filter === "active" ? "active" : ""}" data-filter="active">Ativos</button>
+          <button class="tab ${state.filter === "completed" ? "active" : ""}" data-filter="completed">Concluídos</button>
+        </div>
       </div>
     </div>
     <div class="content">${listItemsHtml()}</div>
@@ -1084,9 +1103,9 @@ function render() {
         </div>
       </div>
       <div class="header-actions">
-        <button class="icon-btn ${pinned ? "on" : ""}" id="pin-btn" title="${pinned ? "Desafixar" : "Fixar janela"}">${icon("pin")}</button>
-        <button class="icon-btn" id="add-btn" title="Novo lembrete">${icon("plus")}</button>
-        <button class="icon-btn ${state.view === "settings" ? "on" : ""}" id="settings-btn" title="Configurações">${icon("settings")}</button>
+        <button class="icon-btn" id="add-btn" title="Novo lembrete" aria-label="Novo lembrete">${icon("plus")}</button>
+        <button class="icon-btn ${state.view === "settings" ? "on" : ""}" id="settings-btn" title="Configurações" aria-label="Configurações">${icon("settings")}</button>
+        <button class="icon-btn ${pinned ? "on" : ""}" id="pin-btn" title="${pinned ? "Desafixar" : "Fixar janela"}" aria-label="${pinned ? "Desafixar" : "Fixar janela"}">${icon("pin")}</button>
       </div>
     </header>
     ${state.view === "settings" ? `<div class="content content-settings">${renderSettings()}</div>` : renderList()}
@@ -1133,10 +1152,30 @@ function bindMainEvents() {
 		});
 	});
 
-	document.getElementById("search-input")?.addEventListener("input", (e) => {
+	document.getElementById("search-toggle")?.addEventListener("click", () => {
+		state.searchOpen = true;
+		render();
+	});
+	document.getElementById("search-close")?.addEventListener("click", () => {
+		state.searchOpen = false;
+		render();
+	});
+	const searchInput = document.getElementById(
+		"search-input",
+	) as HTMLInputElement | null;
+	searchInput?.addEventListener("input", (e) => {
 		state.search = (e.target as HTMLInputElement).value;
 		void refresh("list");
 	});
+	searchInput?.addEventListener("keydown", (e) => {
+		if (e.key === "Escape") {
+			state.searchOpen = false;
+			render();
+		}
+	});
+	if (searchInput) {
+		requestAnimationFrame(() => searchInput.focus());
+	}
 
 	document.querySelectorAll("[data-filter]").forEach((btn) => {
 		btn.addEventListener("click", () => {

@@ -235,8 +235,42 @@ body {
 	background: var(--surface);
 }
 
+.toolbar-search-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	animation: search-expand-in 0.18s ease-out;
+}
+
+@keyframes search-expand-in {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.toolbar-row {
+	display: flex;
+	align-items: stretch;
+	gap: 8px;
+}
+
+.toolbar-row .tabs {
+	flex: 1;
+	min-width: 0;
+}
+
+.search-toggle.on {
+	color: var(--accent);
+}
+
 .search {
-	width: 100%;
+	flex: 1;
+	min-width: 0;
 	padding: 10px 12px;
 	border: 1px solid var(--border);
 	border-radius: 8px;
