@@ -893,7 +893,7 @@ function themeModeLabel(theme: ThemeMode) {
 }
 
 function googleCalendarHubSubtitle(g: GoogleCalendarStatus | null) {
-	if (!g?.configured) return "OAuth não configurado";
+	if (!g?.configured) return "Integração indisponível nesta instalação";
 	if (g.connected) return g.email ?? "Conta conectada";
 	return "Nenhuma conta conectada";
 }
@@ -1051,7 +1051,7 @@ function renderSettingsCalendars() {
         </span>
         ${
 					!g?.configured
-						? `<p class="import-status import-error">Credenciais OAuth ausentes. Siga <code>docs/google-cloud-oauth.md</code> (redirect <code>http://127.0.0.1:5198/oauth/callback</code>).</p>`
+						? `<p class="setting-hint">Conectar com Google estará disponível após uma atualização do app. Você não precisa criar credenciais no Google Cloud.</p>`
 						: g.connected
 							? `<p class="google-account">${escapeHtml(g.email ?? "Conta conectada")}</p>
                <p class="setting-hint">${formatGoogleSyncLabel(g.lastSyncAt)}</p>`

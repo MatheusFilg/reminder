@@ -2,6 +2,10 @@ import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import { Utils } from "electrobun/bun";
+import {
+	BUNDLED_GOOGLE_CLIENT_ID,
+	BUNDLED_GOOGLE_CLIENT_SECRET,
+} from "./googleOAuthBundled";
 
 export const GOOGLE_OAUTH_REDIRECT_PORT = 5198;
 export const GOOGLE_OAUTH_REDIRECT_URI = `http://127.0.0.1:${GOOGLE_OAUTH_REDIRECT_PORT}/oauth/callback`;
@@ -46,13 +50,25 @@ function fromJsonFile(path: string): GoogleOAuthClientConfig | null {
 	}
 }
 
-/** Credenciais locais (não commitar). Último passo: Google Cloud Console. */
+function fromBundled(): GoogleOAuthClientConfig | null {
+	const clientId = BUNDLED_GOOGLE_CLIENT_ID.trim();
+	const clientSecret = BUNDLED_GOOGLE_CLIENT_SECRET.trim();
+	if (!clientId || !clientSecret) return null;
+	return {
+		clientId,
+		clientSecret,
+		redirectUri: GOOGLE_OAUTH_REDIRECT_URI,
+	};
+}
+
+/** Dev: env ou .secrets. Release: credenciais embutidas no build (mantenedor). */
 export function loadGoogleOAuthClientConfig(): GoogleOAuthClientConfig | null {
 	return (
 		fromEnv() ??
 		fromJsonFile(join(process.cwd(), ".secrets", "google-oauth-client.json")) ??
 		fromJsonFile(join(Utils.paths.userData, "google-oauth-client.json")) ??
-		fromJsonFile(join(homedir(), ".config", "reminder", "google-oauth-client.json"))
+		fromJsonFile(join(homedir(), ".config", "reminder", "google-oauth-client.json")) ??
+		fromBundled()
 	);
 }
 

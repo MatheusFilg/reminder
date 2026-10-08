@@ -15,6 +15,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install
+      - name: Embed Google OAuth (release)
+        env:
+          REMINDER_GOOGLE_CLIENT_ID: ${{ secrets.REMINDER_GOOGLE_CLIENT_ID }}
+          REMINDER_GOOGLE_CLIENT_SECRET: ${{ secrets.REMINDER_GOOGLE_CLIENT_SECRET }}
+        run: bun scripts/embed-google-oauth.ts
       - run: bun run build
       - name: Upload release assets
         uses: softprops/action-gh-release@v2

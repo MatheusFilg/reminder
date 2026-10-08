@@ -1,6 +1,8 @@
 # Google Cloud — credenciais para Google Agenda (read-only)
 
-Passo **manual** para você fazer antes da implementação OAuth no Reminder. Não commite `client_secret` nem JSON de credenciais.
+**Quem instala o Reminder** só clica em **Conectar Google** — não cria projeto no Cloud.
+
+**Mantenedor do app** configura **uma vez** o OAuth client e injeta no build de release (secrets no GitHub). Não commite `client_secret` nem JSON no git.
 
 ## 1. Projeto no Google Cloud
 
@@ -75,11 +77,17 @@ O código da feature deve ler **um** desses caminhos (a Trama/Malho documentam n
 - [ ] Seu Gmail em **Test users** (modo Testing)
 - [ ] JSON ou env em `.secrets/` — **nunca** `git add` disso
 
-## 7. Quando for para produção (depois)
+## 7. Release (usuário final)
 
-- Publicar app na tela de consentimento (verificação Google se escopos sensíveis).
-- Client ID de release separado do dev.
-- Política de privacidade (app lê calendário; dados ficam só na máquina do usuário).
+1. Crie um OAuth client **só para release** (pode ser o mesmo redirect `http://127.0.0.1:5198/oauth/callback`).
+2. No repositório GitHub → **Settings → Secrets and variables → Actions**:
+   - `REMINDER_GOOGLE_CLIENT_ID`
+   - `REMINDER_GOOGLE_CLIENT_SECRET`
+3. O workflow `release.yml` roda `bun scripts/embed-google-oauth.ts` antes do `bun run build` — as credenciais vão **dentro do binário**, não num arquivo que o usuário edita.
+4. Publique a tela de consentimento (verificação Google para `calendar.readonly` se for público).
+5. Política de privacidade: app lê calendário; tokens e eventos ficam só na máquina do usuário.
+
+**Dev local:** continue com `.secrets/google-oauth-client.json` ou variáveis de ambiente (não precisa do embed).
 
 ## Referência no produto
 
