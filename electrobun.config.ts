@@ -4,7 +4,7 @@ export default {
 	app: {
 		name: "Reminder",
 		identifier: "dev.reminder.app",
-		version: "0.1.1",
+		version: "0.1.2",
 	},
 	runtime: {
 		exitOnLastWindowClosed: false,
