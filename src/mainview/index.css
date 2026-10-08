@@ -212,18 +212,10 @@ body {
 	justify-content: center;
 }
 
+.icon-btn:hover,
 .icon-btn.on {
-	background: var(--text);
-	color: var(--bg);
-}
-
-.icon-btn:hover {
 	background: var(--surface-2);
-}
-
-.icon-btn.on:hover {
-	background: var(--accent-hover);
-	color: var(--on-accent);
+	color: var(--text);
 }
 
 .toolbar {
