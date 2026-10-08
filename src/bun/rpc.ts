@@ -60,6 +60,7 @@ import {
 	startGoogleCalendarBackgroundSync,
 } from "./googleCalendar";
 import type { GoogleCalendarStatus } from "./googleAuth";
+import { getAppVersionLabel } from "./appVersion";
 
 export type ReminderRPC = {
 	bun: RPCSchema<{
@@ -118,6 +119,7 @@ export type ReminderRPC = {
 				response: { imported: number; skipped: number; error?: string };
 			};
 			getGoogleCalendarStatus: { params: {}; response: GoogleCalendarStatus };
+			getAppVersion: { params: {}; response: { version: string } };
 			connectGoogleCalendar: {
 				params: {};
 				response: { ok: boolean; email?: string; error?: string };
@@ -428,6 +430,7 @@ export function createReminderRPC(
 					};
 				},
 				getGoogleCalendarStatus: () => getGoogleCalendarStatus(),
+				getAppVersion: async () => ({ version: await getAppVersionLabel() }),
 				connectGoogleCalendar: async () => {
 					try {
 						const { email } = await runGoogleOAuthConnect((url) => {

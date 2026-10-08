@@ -137,6 +137,7 @@ type ReminderRPC = {
 				params: {};
 				response: GoogleCalendarStatus;
 			};
+			getAppVersion: { params: {}; response: { version: string } };
 			connectGoogleCalendar: {
 				params: {};
 				response: { ok: boolean; email?: string; error?: string };
@@ -198,6 +199,7 @@ const state = {
 	alerts: [] as AlertPreset[],
 	snoozes: [] as SnoozePreset[],
 	googleCalendar: null as GoogleCalendarStatus | null,
+	appVersion: "…" as string,
 	importedIgnoreRules: [] as ImportedIgnoreRule[],
 	modal: null as
 		| null
@@ -579,7 +581,8 @@ function onSystemThemeChange() {
 
 async function refresh(mode: "full" | "list" = "full") {
 	const seq = ++refreshSeq;
-	const [items, settings, presets, googleCalendar, ignoreRules] = await Promise.all([
+	const [items, settings, presets, googleCalendar, appVersion, ignoreRules] =
+		await Promise.all([
 		electrobun.rpc!.request.getReminders({
 			filter: state.filter,
 			search: state.search,
@@ -587,6 +590,7 @@ async function refresh(mode: "full" | "list" = "full") {
 		electrobun.rpc!.request.getSettings({}),
 		electrobun.rpc!.request.getPresets({}),
 		electrobun.rpc!.request.getGoogleCalendarStatus({}),
+		electrobun.rpc!.request.getAppVersion({}),
 		electrobun.rpc!.request.getImportedIgnoreRules({}),
 	]);
 	if (seq !== refreshSeq) return;
@@ -595,6 +599,7 @@ async function refresh(mode: "full" | "list" = "full") {
 	state.alerts = presets.alerts;
 	state.snoozes = presets.snoozes;
 	state.googleCalendar = googleCalendar;
+	state.appVersion = appVersion.version;
 	state.importedIgnoreRules = ignoreRules.rules;
 	applyThemeFromSettings(settings);
 	bindSystemThemeListener(settings.theme);
@@ -953,7 +958,7 @@ function renderSettingsHub(s: AppSettings) {
 					s.autostart ? "Inicia com o sistema" : "Não inicia com o sistema",
 				)}
       </div>
-      <p class="setting-about setting-about-hub">Reminder v0.1.1</p>
+      <p class="setting-about setting-about-hub">Reminder v${escapeHtml(state.appVersion)}</p>
     </div>`;
 }
 
