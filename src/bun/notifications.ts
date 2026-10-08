@@ -3,6 +3,7 @@ import { join } from "path";
 import { getSettings } from "./db";
 import type { ImportedEventRow, ReminderRow } from "./types";
 import { formatOccurrenceLabel } from "./recurrence";
+import { formatImportedEventTitle } from "./importedDisplay";
 import {
 	resolveNotificationSoundPath,
 	resolveReminderSavedSoundPath,
@@ -139,18 +140,20 @@ export async function showImportedEventNotification(
 						? "em 1 hora"
 						: formatOccurrenceLabel(occurrence);
 
-	const title = event.summary;
+	const { title, fullTitle } = formatImportedEventTitle(event.summary);
 	const body = importedNotificationBody(event, when, occurrence);
+	const notifyTitle =
+		title.length < fullTitle.length ? title : fullTitle;
 
 	if (process.platform === "linux") {
-		await showLinuxNotification(title, body);
+		await showLinuxNotification(notifyTitle, body);
 		await playLinuxNotificationSound();
 		return;
 	}
 
 	const { Utils } = await import("electrobun/bun");
 	Utils.showNotification({
-		title,
+		title: notifyTitle,
 		body,
 		subtitle: "Reminder · Importado",
 		silent: false,

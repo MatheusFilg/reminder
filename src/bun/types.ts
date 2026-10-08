@@ -59,6 +59,10 @@ export interface ReminderListItem {
 	allDay: boolean;
 	source?: "local" | "ics" | "google";
 	readOnly?: boolean;
+	/** Título original importado (tooltip). */
+	nameFull?: string;
+	/** Tags de contexto (ex.: Feriado). */
+	displayTags?: string[];
 }
 
 export type ThemeMode = "system" | "light" | "dark";

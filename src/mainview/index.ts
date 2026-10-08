@@ -15,8 +15,10 @@ interface ReminderListItem {
 	alertOffsetsMinutes: number[];
 	isPaused: boolean;
 	allDay: boolean;
-	source?: "local" | "ics";
+	source?: "local" | "ics" | "google";
 	readOnly?: boolean;
+	nameFull?: string;
+	displayTags?: string[];
 }
 
 interface ReminderInput {
@@ -819,7 +821,13 @@ function listItemsHtml() {
           <div class="item" data-id="${item.id}">
             <div class="item-main">
               <p class="item-name">
-                ${escapeHtml(item.name)}
+                <span class="item-name-text" title="${escapeHtml(item.nameFull ?? item.name)}">${escapeHtml(item.name)}</span>
+                ${(item.displayTags ?? [])
+									.map(
+										(tag) =>
+											`<span class="item-tag">${escapeHtml(tag)}</span>`,
+									)
+									.join("")}
                 ${item.readOnly ? `<span class="badge-imported">Importado</span>` : ""}
               </p>
               <p class="item-meta">${escapeHtml(item.nextOccurrenceLabel)}</p>

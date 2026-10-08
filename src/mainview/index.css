@@ -355,6 +355,33 @@ body {
 	margin: 0 0 2px;
 	font-size: 0.9rem;
 	font-weight: 600;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+
+.item-name-text {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.item-tag {
+	display: inline-block;
+	padding: 2px 7px;
+	font-size: 0.62rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--accent);
+	border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+	border-radius: 6px;
+	vertical-align: middle;
+	flex-shrink: 0;
 }
 
 .item-meta {
