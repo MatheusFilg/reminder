@@ -356,32 +356,51 @@ body {
 	font-size: 0.9rem;
 	font-weight: 600;
 	display: flex;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
 	align-items: center;
-	gap: 6px;
+	gap: 8px;
 	min-width: 0;
 }
 
 .item-name-text {
-	flex: 1 1 auto;
+	flex: 1 1 0;
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
+.item-name-badges {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	gap: 4px;
+}
+
 .item-tag {
 	display: inline-block;
-	padding: 2px 7px;
-	font-size: 0.62rem;
-	font-weight: 600;
+	padding: 1px 5px;
+	font-size: 0.55rem;
+	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.04em;
+	letter-spacing: 0.03em;
 	color: var(--accent);
 	border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-	border-radius: 6px;
-	vertical-align: middle;
+	border-radius: 5px;
+	line-height: 1.35;
+	white-space: nowrap;
+}
+
+.badge-imported-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--muted);
 	flex-shrink: 0;
+}
+
+.badge-imported-icon .lucide {
+	display: block;
 }
 
 .item-meta {
@@ -654,20 +673,6 @@ label.setting-card {
 	flex-shrink: 0;
 	font-size: 0.78rem;
 	padding: 6px 10px;
-}
-
-.badge-imported {
-	display: inline-block;
-	margin-left: 8px;
-	padding: 2px 7px;
-	font-size: 0.62rem;
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	color: var(--muted);
-	border: 1px solid var(--border);
-	border-radius: 6px;
-	vertical-align: middle;
 }
 
 .setting-about {

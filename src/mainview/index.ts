@@ -822,13 +822,19 @@ function listItemsHtml() {
             <div class="item-main">
               <p class="item-name">
                 <span class="item-name-text" title="${escapeHtml(item.nameFull ?? item.name)}">${escapeHtml(item.name)}</span>
+                <span class="item-name-badges">
                 ${(item.displayTags ?? [])
 									.map(
 										(tag) =>
 											`<span class="item-tag">${escapeHtml(tag)}</span>`,
 									)
 									.join("")}
-                ${item.readOnly ? `<span class="badge-imported">Importado</span>` : ""}
+                ${
+									item.readOnly
+										? `<span class="badge-imported-icon" title="Importado do calendário" role="img" aria-label="Importado">${icon("calendar", 12)}</span>`
+										: ""
+								}
+                </span>
               </p>
               <p class="item-meta">${escapeHtml(item.nextOccurrenceLabel)}</p>
               ${
