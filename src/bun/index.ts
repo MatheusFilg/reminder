@@ -5,7 +5,7 @@ import { createReminderRPC } from "./rpc";
 import { notifyAllDayRemindersOnOpen, startScheduler } from "./scheduler";
 import { startGoogleCalendarBackgroundSync } from "./googleCalendar";
 import { applyLinuxRoundedCorners } from "./roundX11";
-import { installLinuxIcons } from "./icons";
+import { installLinuxIcons, installLinuxTrayIcon } from "./icons";
 import { resolveTrayIconPath, resolveTrayIconViewsUri } from "./themePack";
 import { join } from "path";
 
@@ -116,22 +116,57 @@ function refreshTrayMenu() {
 }
 
 const viewsAssetsRoot = join(PATHS.VIEWS_FOLDER, "assets");
+const TRAY_PANEL_SIZE = 22;
 
-function refreshTrayImage() {
-	if (!tray) return;
-	const { themePack } = getSettings();
+function resolveTrayImage(themePack: ReturnType<typeof getSettings>["themePack"]) {
 	const viewsUri = resolveTrayIconViewsUri(themePack);
 	const iconPath = resolveTrayIconPath(themePack, viewsAssetsRoot);
-	try {
-		if (process.platform === "linux" && iconPath) {
-			installLinuxIcons(iconPath);
-			tray.setImage(iconPath);
-		} else {
-			tray.setImage(viewsUri);
+	if (process.platform === "linux") {
+		try {
+			const trayFile =
+				themePack === "paradox" ? "tray-paradox.png" : "tray-default.png";
+			return installLinuxTrayIcon(iconPath, trayFile);
+		} catch {
+			return viewsUri;
 		}
-	} catch {
-		tray.setImage("views://assets/dev.reminder.app.png");
 	}
+	return viewsUri;
+}
+
+function bindTrayClicked() {
+	if (!tray) return;
+	tray.on("tray-clicked", (event: { data?: { action?: string } }) => {
+		const action = event.data?.action;
+		if (action) {
+			handleTrayAction(action);
+			return;
+		}
+		if (popoverVisible) {
+			hidePopover();
+			return;
+		}
+		showPopover();
+	});
+}
+
+/** GTK/Linux: setTrayImage sozinho não atualiza o ícone — recria o tray. */
+function recreateTray() {
+	const image = resolveTrayImage(getSettings().themePack);
+	tray?.remove();
+	tray = new Tray({
+		title: "Reminder",
+		image,
+		template: false,
+		width: TRAY_PANEL_SIZE,
+		height: TRAY_PANEL_SIZE,
+	});
+	tray.setImage(image);
+	tray.setMenu(buildTrayMenu());
+	bindTrayClicked();
+}
+
+function refreshTrayImage() {
+	recreateTray();
 }
 
 function handleTrayAction(action: string) {
@@ -204,38 +239,13 @@ popoverWindow.on("blur", () => {
 });
 
 const bundledIcon = join(PATHS.VIEWS_FOLDER, "assets/dev.reminder.app.png");
-let trayIconPath = bundledIcon;
 try {
-	trayIconPath = installLinuxIcons(bundledIcon);
+	installLinuxIcons(bundledIcon);
 } catch {
-	trayIconPath = "views://assets/dev.reminder.app.png";
+	// ícone de menu/desktop opcional
 }
 
-tray = new Tray({
-	title: "Reminder",
-	image: trayIconPath,
-	template: false,
-	width: 48,
-	height: 48,
-});
-tray.setImage(trayIconPath);
-
-tray.setMenu(buildTrayMenu());
 refreshTrayImage();
-
-tray.on("tray-clicked", (event: { data?: { action?: string } }) => {
-	const action = event.data?.action;
-	// Clique direito / menu: action preenchida. Clique esquerdo: abre o app.
-	if (action) {
-		handleTrayAction(action);
-		return;
-	}
-	if (popoverVisible) {
-		hidePopover();
-		return;
-	}
-	showPopover();
-});
 
 const settings = getSettings();
 setAutostart(settings.autostart);

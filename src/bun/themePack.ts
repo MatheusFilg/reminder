@@ -14,10 +14,21 @@ export function resolveThemePackAsset(
 	return existsSync(fallback) ? fallback : packPath;
 }
 
+/** Bandeja Paradox usa o mesmo PNG do cabeçalho (Pulse Grenade). */
+const PARADOX_TRAY_FILE = "app-icon.png";
+
 export function resolveTrayIconPath(
 	pack: ThemePackId,
 	viewsAssetsRoot: string,
 ): string {
+	if (pack === "paradox") {
+		return resolveThemePackAsset(
+			pack,
+			PARADOX_TRAY_FILE,
+			viewsAssetsRoot,
+			"dev.reminder.app.png",
+		);
+	}
 	return resolveThemePackAsset(
 		pack,
 		"tray.png",
@@ -29,7 +40,7 @@ export function resolveTrayIconPath(
 /** URI que o Tray do Electrobun resolve para o PNG no bundle. */
 export function resolveTrayIconViewsUri(pack: ThemePackId): string {
 	if (pack === "paradox") {
-		return "views://assets/themes/paradox/tray.png";
+		return `views://assets/themes/paradox/${PARADOX_TRAY_FILE}`;
 	}
 	return "views://assets/themes/default/tray.png";
 }

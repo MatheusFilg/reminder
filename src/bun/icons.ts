@@ -4,6 +4,18 @@ import { join } from "path";
 
 export const APP_ICON_NAME = "dev.reminder.app";
 
+/** Ícone estável para a bandeja (GTK/AppIndicator costuma ignorar setImage sem recriar o tray). */
+export function installLinuxTrayIcon(sourcePng: string, fileName: string) {
+	if (!existsSync(sourcePng)) {
+		throw new Error(`icon not found: ${sourcePng}`);
+	}
+	const dir = join(homedir(), ".local/share/reminder");
+	mkdirSync(dir, { recursive: true });
+	const dest = join(dir, fileName);
+	copyFileSync(sourcePng, dest);
+	return dest;
+}
+
 export function installLinuxIcons(sourcePng: string) {
 	if (!existsSync(sourcePng)) {
 		throw new Error(`icon not found: ${sourcePng}`);
@@ -22,3 +34,6 @@ export function installLinuxIcons(sourcePng: string) {
 
 	return join(hicolor, "48x48", "apps", `${APP_ICON_NAME}.png`);
 }
+
+
+[You have received this identical output 3 times. Re-reading '/home/matheusf/dev/pessoal/reminder/src/bun/icons.ts:raw' will not change it — use a narrower selector (path:A-B), or proceed with the edit.]
