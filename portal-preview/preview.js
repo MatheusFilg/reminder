@@ -125,7 +125,7 @@ function renderSettings() {
           <span class="toggle-ui" aria-hidden="true"></span>
         </span>
       </label>
-      <p class="setting-about">Portal preview · Reminder v0.1.0</p>
+      <p class="setting-about">Portal preview · Reminder v0.1.1</p>
     </div>`;
 }
 

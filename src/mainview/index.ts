@@ -953,7 +953,7 @@ function renderSettingsHub(s: AppSettings) {
 					s.autostart ? "Inicia com o sistema" : "Não inicia com o sistema",
 				)}
       </div>
-      <p class="setting-about setting-about-hub">Reminder v0.1.0</p>
+      <p class="setting-about setting-about-hub">Reminder v0.1.1</p>
     </div>`;
 }
 
