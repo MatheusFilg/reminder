@@ -4,6 +4,7 @@ import { setAutostart } from "./autostart";
 import { createReminderRPC } from "./rpc";
 import { notifyAllDayRemindersOnOpen, startScheduler } from "./scheduler";
 import { startGoogleCalendarBackgroundSync } from "./googleCalendar";
+import { maybeAutoUpdateOnStartup } from "./autoUpdate";
 import { applyLinuxRoundedCorners } from "./roundX11";
 import { installLinuxIcons, installLinuxTrayIcon } from "./icons";
 import { resolveTrayIconPath, resolveTrayIconViewsUri } from "./themePack";
@@ -246,6 +247,8 @@ try {
 }
 
 refreshTrayImage();
+
+void maybeAutoUpdateOnStartup();
 
 const settings = getSettings();
 setAutostart(settings.autostart);
