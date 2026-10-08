@@ -29,7 +29,10 @@ import {
 } from "./db";
 import { ICS_IMPORT_WINDOW_DAYS } from "./ics";
 import { prepareIcsImport } from "./icsImport";
-import { formatImportedEventTitle } from "./importedDisplay";
+import {
+	formatImportedEventTitle,
+	shouldHideImportedDescription,
+} from "./importedDisplay";
 import {
 	IMPORTED_ALERT_OFFSETS_MINUTES,
 	importedDbIdFromListId,
@@ -197,10 +200,10 @@ function importedListWindow(now: Date, missedHours: number) {
 function buildImportedListItem(row: ImportedEventRow): ReminderListItem {
 	const occurrence = new Date(row.starts_at);
 	const display = formatImportedEventTitle(row.summary);
-	const desc = row.description.trim();
-	const hideDesc =
-		display.tags.includes("Feriado") &&
-		/^feriado$/i.test(desc);
+	const hideDesc = shouldHideImportedDescription(
+		row.description,
+		display.tags,
+	);
 	return {
 		id: listIdForImported(row.id),
 		name: display.title,

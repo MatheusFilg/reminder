@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { formatImportedEventTitle } from "./importedDisplay";
+import {
+	formatImportedEventTitle,
+	shouldHideImportedDescription,
+} from "./importedDisplay";
 
 describe("formatImportedEventTitle", () => {
 	test("feriado brasileiro com prefixo de agenda", () => {
@@ -30,5 +33,22 @@ describe("formatImportedEventTitle", () => {
 		expect(r.title).toBe("CONSULTA ORTOPEDIA");
 		expect(r.fullTitle).toContain("@mv.com.br");
 		expect(r.tags).toEqual([]);
+	});
+});
+
+describe("shouldHideImportedDescription", () => {
+	test("texto padrão Google em feriado", () => {
+		expect(
+			shouldHideImportedDescription(
+				"Data comemorativa Para ocultar as datas comemorativas, acesse…",
+				["Feriado"],
+			),
+		).toBe(true);
+	});
+
+	test("consulta real não esconde", () => {
+		expect(
+			shouldHideImportedDescription("Sala 3, levar exames", []),
+		).toBe(false);
 	});
 });

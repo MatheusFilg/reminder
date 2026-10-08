@@ -39,3 +39,17 @@ export function formatImportedEventTitle(summary: string): ImportedDisplayTitle 
 
 	return { title, fullTitle, tags };
 }
+
+/** Texto de ajuda que o Google coloca em feriados/datas comemorativas — não mostrar na lista. */
+export function shouldHideImportedDescription(
+	description: string,
+	displayTags: string[],
+): boolean {
+	const desc = description.trim();
+	if (!desc) return false;
+	if (/^feriado$/i.test(desc)) return true;
+	if (!displayTags.includes("Feriado")) return false;
+	if (/^data comemorativa\b/i.test(desc)) return true;
+	if (/para ocultar (as )?datas comemorativas/i.test(desc)) return true;
+	return false;
+}
