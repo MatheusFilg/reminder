@@ -4,6 +4,7 @@ import { join } from "path";
 import { describe, expect, test } from "bun:test";
 import {
 	resolveNotificationSoundPath,
+	resolveReminderSavedSoundPath,
 	resolveTrayIconPath,
 } from "./themePack";
 
@@ -29,7 +30,17 @@ describe("themePack", () => {
 		expect(resolveNotificationSoundPath("paradox", root)).toBeNull();
 	});
 
-	test("resolveNotificationSoundPath returns path when notify.oga exists", () => {
+	test("resolveNotificationSoundPath prefers notify-alert.mp3", () => {
+		const root = mkdtempSync(join(tmpdir(), "reminder-theme-"));
+		const packDir = join(root, "themes", "paradox");
+		mkdirSync(packDir, { recursive: true });
+		const mp3 = join(packDir, "notify-alert.mp3");
+		writeFileSync(mp3, "");
+		writeFileSync(join(packDir, "notify.oga"), "");
+		expect(resolveNotificationSoundPath("paradox", root)).toBe(mp3);
+	});
+
+	test("resolveNotificationSoundPath falls back to notify.oga", () => {
 		const root = mkdtempSync(join(tmpdir(), "reminder-theme-"));
 		const packDir = join(root, "themes", "paradox");
 		mkdirSync(packDir, { recursive: true });
@@ -37,4 +48,16 @@ describe("themePack", () => {
 		writeFileSync(sound, "");
 		expect(resolveNotificationSoundPath("paradox", root)).toBe(sound);
 	});
+
+	test("resolveReminderSavedSoundPath returns path when mp3 exists", () => {
+		const root = mkdtempSync(join(tmpdir(), "reminder-theme-"));
+		const packDir = join(root, "themes", "paradox");
+		mkdirSync(packDir, { recursive: true });
+		const sound = join(packDir, "reminder-saved.mp3");
+		writeFileSync(sound, "");
+		expect(resolveReminderSavedSoundPath("paradox", root)).toBe(sound);
+	});
 });
+
+
+[You have received this identical output 3 times. Re-reading '/home/matheusf/dev/pessoal/reminder/src/bun/themePack.test.ts:raw' will not change it — use a narrower selector (path:A-B), or proceed with the edit.]

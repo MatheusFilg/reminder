@@ -993,7 +993,7 @@ function renderSettingsAppearance(s: AppSettings) {
       <label class="setting-card" for="theme-paradox">
         <span class="setting-copy">
           <span class="setting-title">Paradox</span>
-          <span class="setting-hint">Paleta azul sci-fi e ícone da bandeja (fan work); som personalizado se o pack incluir notify.oga</span>
+          <span class="setting-hint">Paleta azul, ícone Pulse Grenade e sons temáticos ao avisar e ao salvar lembrete (fan work)</span>
         </span>
         <span class="toggle">
           <input type="checkbox" id="theme-paradox" ${s.themePack === "paradox" ? "checked" : ""} />

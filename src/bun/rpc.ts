@@ -44,6 +44,7 @@ import {
 	startOfDay,
 } from "./recurrence";
 import { setAutostart } from "./autostart";
+import { playReminderSavedSound } from "./notifications";
 import { notifyAllDayRemindersOnOpen, onSchedulerTick, runSchedulerTick } from "./scheduler";
 import {
 	getGoogleCalendarStatus,
@@ -332,6 +333,7 @@ export function createReminderRPC(
 					runSchedulerTick();
 					notifyAllDayRemindersOnOpen();
 					emitChanged("create");
+					void playReminderSavedSound();
 					return { id: row.id };
 				},
 				updateReminder: ({ id, input }) => {

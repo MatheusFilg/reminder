@@ -3,9 +3,28 @@ import { join } from "path";
 import { getSettings } from "./db";
 import type { ImportedEventRow, ReminderRow } from "./types";
 import { formatOccurrenceLabel } from "./recurrence";
-import { resolveNotificationSoundPath } from "./themePack";
+import {
+	resolveNotificationSoundPath,
+	resolveReminderSavedSoundPath,
+} from "./themePack";
 
 const ALL_DAY_OPEN_ALERT = -1;
+
+async function playLinuxSoundFile(path: string, waitMs = 500): Promise<boolean> {
+	try {
+		const proc = Bun.spawn(["paplay", path], {
+			stdout: "ignore",
+			stderr: "ignore",
+		});
+		const exited = await Promise.race([
+			proc.exited,
+			Bun.sleep(waitMs).then(() => null),
+		]);
+		return exited === 0;
+	} catch {
+		return false;
+	}
+}
 
 async function playLinuxNotificationSound() {
 	const { themePack } = getSettings();
@@ -13,21 +32,7 @@ async function playLinuxNotificationSound() {
 		themePack,
 		join(PATHS.VIEWS_FOLDER, "assets"),
 	);
-	if (custom) {
-		try {
-			const proc = Bun.spawn(["paplay", custom], {
-				stdout: "ignore",
-				stderr: "ignore",
-			});
-			const exited = await Promise.race([
-				proc.exited,
-				Bun.sleep(500).then(() => null),
-			]);
-			if (exited === 0) return;
-		} catch {
-			// fallback below
-		}
-	}
+	if (custom && (await playLinuxSoundFile(custom))) return;
 	try {
 		const proc = Bun.spawn(["canberra-gtk-play", "-i", "message-new-instant"], {
 			stdout: "ignore",
@@ -48,6 +53,19 @@ async function playLinuxNotificationSound() {
 		});
 	} catch {
 		// no sound backend available
+	}
+}
+
+/** Som ao criar lembrete (pack Paradox: reminder-saved.mp3). */
+export async function playReminderSavedSound() {
+	const { themePack } = getSettings();
+	const custom = resolveReminderSavedSoundPath(
+		themePack,
+		join(PATHS.VIEWS_FOLDER, "assets"),
+	);
+	if (!custom) return;
+	if (process.platform === "linux") {
+		await playLinuxSoundFile(custom, 3000);
 	}
 }
 

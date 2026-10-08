@@ -29,6 +29,10 @@ export default {
 			"assets/themes/paradox/tray.png": "views/assets/themes/paradox/tray.png",
 			"assets/themes/paradox/app-icon.png":
 				"views/assets/themes/paradox/app-icon.png",
+			"assets/themes/paradox/notify-alert.mp3":
+				"views/assets/themes/paradox/notify-alert.mp3",
+			"assets/themes/paradox/reminder-saved.mp3":
+				"views/assets/themes/paradox/reminder-saved.mp3",
 		},
 		mac: { bundleCEF: false },
 		linux: { bundleCEF: false, icon: "assets/icon.png" },
