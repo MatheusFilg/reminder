@@ -125,8 +125,10 @@ function refreshTrayImage() {
 	try {
 		if (process.platform === "linux" && iconPath) {
 			installLinuxIcons(iconPath);
+			tray.setImage(iconPath);
+		} else {
+			tray.setImage(viewsUri);
 		}
-		tray.setImage(viewsUri);
 	} catch {
 		tray.setImage("views://assets/dev.reminder.app.png");
 	}
