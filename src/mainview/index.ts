@@ -810,7 +810,9 @@ function listItemsHtml() {
 	return grouped
 		.map(
 			(g) => `
-        <div class="group-title">${GROUP_LABELS[g.group]}</div>
+        <section class="list-section" aria-labelledby="section-${g.group}">
+          <h2 class="group-title" id="section-${g.group}">${GROUP_LABELS[g.group]}</h2>
+          <div class="list-section-items">
         ${g.items
 					.map(
 						(item) => `
@@ -842,6 +844,8 @@ function listItemsHtml() {
           </div>`,
 					)
 					.join("")}
+          </div>
+        </section>
       `,
 		)
 		.join("");
