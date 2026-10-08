@@ -953,6 +953,7 @@ function renderSettingsHub(s: AppSettings) {
 					s.autostart ? "Inicia com o sistema" : "Não inicia com o sistema",
 				)}
       </div>
+      <p class="setting-about setting-about-hub">Reminder v0.1.0</p>
     </div>`;
 }
 
@@ -1036,7 +1037,6 @@ function renderSettingsGeneral(s: AppSettings) {
           <span class="toggle-ui" aria-hidden="true"></span>
         </span>
       </label>
-      <p class="setting-about">Reminder v0.1.0</p>
     </div>`;
 }
 

@@ -302,6 +302,15 @@ body {
 
 .content-settings {
 	padding: 0;
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+}
+
+.settings.settings-hub {
+	flex: 1;
+	min-height: 0;
 }
 
 .list-section {
@@ -684,6 +693,12 @@ label.setting-card {
 	color: var(--muted);
 	opacity: 0.7;
 	letter-spacing: 0.02em;
+}
+
+.setting-about-hub {
+	margin-top: auto;
+	padding-top: 20px;
+	padding-bottom: 4px;
 }
 
 .setting-copy {
