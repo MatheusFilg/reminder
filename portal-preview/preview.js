@@ -109,8 +109,8 @@ function renderSettings() {
       </div>
       <label class="setting-card" for="theme-paradox">
         <span class="setting-copy">
-          <span class="setting-title">Tema violeta</span>
-          <span class="setting-hint">Pack Paradox (preview)</span>
+          <span class="setting-title">Paradox</span>
+          <span class="setting-hint">Paleta azul sci-fi (preview)</span>
         </span>
         <span class="toggle">
           <input type="checkbox" id="theme-paradox" ${s.themePack === "paradox" ? "checked" : ""} />

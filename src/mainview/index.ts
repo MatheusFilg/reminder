@@ -893,7 +893,7 @@ function settingsHubRow(
 function renderSettingsHub(s: AppSettings) {
 	const g = state.googleCalendar;
 	const hiddenCount = state.importedIgnoreRules.length;
-	const appearanceSub = `${themeModeLabel(s.theme)}${s.themePack === "paradox" ? " · violeta" : ""}`;
+	const appearanceSub = `${themeModeLabel(s.theme)}${s.themePack === "paradox" ? " · Paradox" : ""}`;
 	return `
     <div class="settings settings-hub">
       <label class="setting-card" for="paused">
@@ -982,8 +982,8 @@ function renderSettingsAppearance(s: AppSettings) {
       </div>
       <label class="setting-card" for="theme-paradox">
         <span class="setting-copy">
-          <span class="setting-title">Tema violeta</span>
-          <span class="setting-hint">Paleta sci-fi e ícone da bandeja; som personalizado se o pack incluir notify.oga</span>
+          <span class="setting-title">Paradox</span>
+          <span class="setting-hint">Paleta azul sci-fi e ícone da bandeja (fan work); som personalizado se o pack incluir notify.oga</span>
         </span>
         <span class="toggle">
           <input type="checkbox" id="theme-paradox" ${s.themePack === "paradox" ? "checked" : ""} />
