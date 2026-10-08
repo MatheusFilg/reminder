@@ -147,6 +147,25 @@ body {
 	align-items: center;
 	gap: 8px;
 	min-width: 0;
+	flex: 1;
+}
+
+.header-search-wrap {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex: 1;
+	min-width: 0;
+	animation: search-expand-in 0.18s ease-out;
+}
+
+.header-search-mode .header-left {
+	flex: 1;
+	margin-right: 8px;
+}
+
+.header-search {
+	width: 100%;
 }
 
 .header-brand {
@@ -219,45 +238,20 @@ body {
 }
 
 .toolbar {
-	padding: 14px 20px 12px;
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
+	padding: 0 20px 12px;
 	border-bottom: 1px solid var(--border);
 	background: var(--surface);
-}
-
-.toolbar-search-row {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	animation: search-expand-in 0.18s ease-out;
 }
 
 @keyframes search-expand-in {
 	from {
 		opacity: 0;
-		transform: translateY(-4px);
+		transform: translateX(-6px);
 	}
 	to {
 		opacity: 1;
-		transform: translateY(0);
+		transform: translateX(0);
 	}
-}
-
-.toolbar-row {
-	display: flex;
-	align-items: stretch;
-	gap: 8px;
-}
-
-.toolbar-row .tabs {
-	flex: 1;
-	min-width: 0;
-}
-
-.search-toggle.on {
-	color: var(--accent);
 }
 
 .search {

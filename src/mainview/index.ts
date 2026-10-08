@@ -848,28 +848,11 @@ function listItemsHtml() {
 }
 
 function renderList() {
-	const searchActive = state.searchOpen;
 	return `
     <div class="toolbar">
-      ${
-				searchActive
-					? `
-      <div class="toolbar-search-row">
-        <input class="search" type="search" placeholder="Buscar..." value="${escapeHtml(state.search)}" id="search-input" autocomplete="off" />
-        <button type="button" class="icon-btn" id="search-close" title="Fechar busca" aria-label="Fechar busca">${icon("x", 16)}</button>
-      </div>`
-					: ""
-			}
-      <div class="toolbar-row">
-        ${
-					!searchActive
-						? `<button type="button" class="icon-btn search-toggle ${state.search.trim() ? "on" : ""}" id="search-toggle" title="Buscar" aria-label="Buscar">${icon("search", 18)}</button>`
-						: ""
-				}
-        <div class="tabs">
-          <button class="tab ${state.filter === "active" ? "active" : ""}" data-filter="active">Ativos</button>
-          <button class="tab ${state.filter === "completed" ? "active" : ""}" data-filter="completed">Concluídos</button>
-        </div>
+      <div class="tabs">
+        <button class="tab ${state.filter === "active" ? "active" : ""}" data-filter="active">Ativos</button>
+        <button class="tab ${state.filter === "completed" ? "active" : ""}" data-filter="completed">Concluídos</button>
       </div>
     </div>
     <div class="content">${listItemsHtml()}</div>
@@ -1087,10 +1070,19 @@ function renderSettings() {
 function render() {
 	const paused = state.settings?.pausedGlobally;
 	const pinned = state.settings?.pinned;
+	const listSearchOpen = state.view === "list" && state.searchOpen;
 	app.innerHTML = `
-    <header class="header">
+    <header class="header ${listSearchOpen ? "header-search-mode" : ""}">
       <div class="header-left">
         ${state.view === "settings" ? `<button class="icon-btn" id="back-btn" title="Voltar">${icon("arrowLeft")}</button>` : ""}
+        ${
+					listSearchOpen
+						? `
+        <div class="header-search-wrap">
+          <input class="search header-search" type="search" placeholder="Buscar..." value="${escapeHtml(state.search)}" id="search-input" autocomplete="off" aria-label="Buscar lembretes" />
+          <button type="button" class="icon-btn" id="search-close" title="Fechar busca" aria-label="Fechar busca">${icon("x", 16)}</button>
+        </div>`
+						: `
         <div class="header-brand">
           <img class="header-logo" src="${themePackAppIconUri(state.settings?.themePack ?? "default")}" alt="" width="36" height="36" />
           <div class="header-title">
@@ -1100,9 +1092,15 @@ function render() {
               ${paused ? "Notificações pausadas" : "Notificações ativas"}
             </span>
           </div>
-        </div>
+        </div>`
+				}
       </div>
       <div class="header-actions">
+        ${
+					state.view === "list" && !listSearchOpen
+						? `<button type="button" class="icon-btn ${state.search.trim() ? "on" : ""}" id="search-toggle" title="Buscar" aria-label="Buscar">${icon("search", 18)}</button>`
+						: ""
+				}
         <button class="icon-btn" id="add-btn" title="Novo lembrete" aria-label="Novo lembrete">${icon("plus")}</button>
         <button class="icon-btn ${state.view === "settings" ? "on" : ""}" id="settings-btn" title="Configurações" aria-label="Configurações">${icon("settings")}</button>
         <button class="icon-btn ${pinned ? "on" : ""}" id="pin-btn" title="${pinned ? "Desafixar" : "Fixar janela"}" aria-label="${pinned ? "Desafixar" : "Fixar janela"}">${icon("pin")}</button>
@@ -1127,6 +1125,7 @@ function bindMainEvents() {
 		render();
 	});
 	document.getElementById("settings-btn")?.addEventListener("click", () => {
+		state.searchOpen = false;
 		state.view = "settings";
 		state.settingsSection = null;
 		render();
