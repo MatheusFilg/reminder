@@ -1,7 +1,28 @@
-import type { AppSettings, ThemeMode, ThemePackId } from "./types";
+import type {
+	AppSettings,
+	GoogleCalendarSyncIntervalMinutes,
+	ThemeMode,
+	ThemePackId,
+} from "./types";
+import { GOOGLE_CALENDAR_SYNC_INTERVAL_MINUTES } from "./types";
 
 export const THEME_MODES: ThemeMode[] = ["system", "light", "dark"];
 export const THEME_PACKS: ThemePackId[] = ["default", "paradox"];
+
+export function parseGoogleCalendarSyncIntervalMinutes(
+	value: string | undefined,
+	fallback: GoogleCalendarSyncIntervalMinutes,
+): GoogleCalendarSyncIntervalMinutes {
+	const n = Number(value);
+	if (
+		GOOGLE_CALENDAR_SYNC_INTERVAL_MINUTES.includes(
+			n as GoogleCalendarSyncIntervalMinutes,
+		)
+	) {
+		return n as GoogleCalendarSyncIntervalMinutes;
+	}
+	return fallback;
+}
 
 export function parseThemeMode(value: string | undefined, fallback: ThemeMode): ThemeMode {
 	if (value && THEME_MODES.includes(value as ThemeMode)) {
@@ -28,5 +49,9 @@ export function appSettingsFromMap(
 		pinned: map.pinned === "true",
 		theme: parseThemeMode(map.theme, defaults.theme),
 		themePack: parseThemePack(map.themePack, defaults.themePack),
+		googleCalendarSyncIntervalMinutes: parseGoogleCalendarSyncIntervalMinutes(
+			map.googleCalendarSyncIntervalMinutes,
+			defaults.googleCalendarSyncIntervalMinutes,
+		),
 	};
 }

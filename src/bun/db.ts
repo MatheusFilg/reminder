@@ -109,6 +109,7 @@ export const defaultSettings: AppSettings = {
 	pinned: false,
 	theme: "system",
 	themePack: "default",
+	googleCalendarSyncIntervalMinutes: 30,
 };
 
 export function getSettings(): AppSettings {

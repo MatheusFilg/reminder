@@ -68,6 +68,10 @@ export interface ReminderListItem {
 export type ThemeMode = "system" | "light" | "dark";
 export type ThemePackId = "default" | "paradox";
 
+export const GOOGLE_CALENDAR_SYNC_INTERVAL_MINUTES = [5, 15, 30, 60] as const;
+export type GoogleCalendarSyncIntervalMinutes =
+	(typeof GOOGLE_CALENDAR_SYNC_INTERVAL_MINUTES)[number];
+
 export interface AppSettings {
 	autostart: boolean;
 	pausedGlobally: boolean;
@@ -75,6 +79,7 @@ export interface AppSettings {
 	pinned: boolean;
 	theme: ThemeMode;
 	themePack: ThemePackId;
+	googleCalendarSyncIntervalMinutes: GoogleCalendarSyncIntervalMinutes;
 }
 
 export interface AlertPreset {

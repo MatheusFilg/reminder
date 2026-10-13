@@ -50,6 +50,8 @@ type SettingsSection =
 	| "calendars"
 	| "notifications";
 
+type GoogleCalendarSyncIntervalMinutes = 5 | 15 | 30 | 60;
+
 interface AppSettings {
 	autostart: boolean;
 	pausedGlobally: boolean;
@@ -57,6 +59,7 @@ interface AppSettings {
 	pinned: boolean;
 	theme: ThemeMode;
 	themePack: ThemePackId;
+	googleCalendarSyncIntervalMinutes: GoogleCalendarSyncIntervalMinutes;
 }
 
 interface AlertPreset {
@@ -1045,8 +1048,25 @@ function renderSettingsGeneral(s: AppSettings) {
     </div>`;
 }
 
+function renderGoogleSyncIntervalOptions(minutes: GoogleCalendarSyncIntervalMinutes) {
+	const choices: { value: GoogleCalendarSyncIntervalMinutes; label: string }[] = [
+		{ value: 5, label: "5 minutos" },
+		{ value: 15, label: "15 minutos" },
+		{ value: 30, label: "30 minutos" },
+		{ value: 60, label: "60 minutos" },
+	];
+	return choices
+		.map(
+			(c) =>
+				`<option value="${c.value}" ${minutes === c.value ? "selected" : ""}>${c.label}</option>`,
+		)
+		.join("");
+}
+
 function renderSettingsCalendars() {
 	const g = state.googleCalendar;
+	const syncMinutes =
+		state.settings?.googleCalendarSyncIntervalMinutes ?? 30;
 	return `
     <div class="settings">
       <div class="setting-card setting-card-column">
@@ -1068,6 +1088,20 @@ function renderSettingsCalendars() {
           <button type="button" class="google-icon-btn google-icon-btn-danger" id="google-disconnect" title="Desvincular conta Google" aria-label="Desvincular conta Google" ${!g?.connected ? "disabled" : ""}>${icon("link2Off", 20)}</button>
         </div>
         <p class="import-status" id="google-status" hidden></p>
+      </div>
+      <div class="setting-card">
+        <span class="setting-copy">
+          <span class="setting-title">Sincronização automática</span>
+          <span class="setting-hint">Com a conta conectada, busca no intervalo escolhido e ao abrir o app (no máximo 1× a cada 5 min).</span>
+        </span>
+        <select
+          id="google-sync-interval"
+          class="setting-select"
+          aria-label="Intervalo de sincronização Google"
+          ${!g?.connected ? "disabled" : ""}
+        >
+          ${renderGoogleSyncIntervalOptions(syncMinutes)}
+        </select>
       </div>
       <div class="setting-card setting-card-column">
         <span class="setting-copy">
@@ -1285,6 +1319,18 @@ function bindMainEvents() {
 		}
 		await refresh();
 	});
+	document
+		.getElementById("google-sync-interval")
+		?.addEventListener("change", async (e) => {
+			const raw = Number((e.target as HTMLSelectElement).value);
+			const allowed: GoogleCalendarSyncIntervalMinutes[] = [5, 15, 30, 60];
+			const minutes = allowed.includes(raw as GoogleCalendarSyncIntervalMinutes)
+				? (raw as GoogleCalendarSyncIntervalMinutes)
+				: 30;
+			state.settings = await electrobun.rpc!.request.updateSettings({
+				partial: { googleCalendarSyncIntervalMinutes: minutes },
+			});
+		});
 	document.getElementById("google-sync")?.addEventListener("click", async () => {
 		const status = document.getElementById("google-status");
 		if (status) {

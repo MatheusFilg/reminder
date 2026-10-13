@@ -3,7 +3,10 @@ import { getSettings, saveSettings } from "./db";
 import { setAutostart } from "./autostart";
 import { createReminderRPC } from "./rpc";
 import { notifyAllDayRemindersOnOpen, startScheduler } from "./scheduler";
-import { startGoogleCalendarBackgroundSync } from "./googleCalendar";
+import {
+	maybeSyncGoogleCalendarOnAppOpen,
+	startGoogleCalendarBackgroundSync,
+} from "./googleCalendar";
 import { maybeAutoUpdateOnStartup } from "./autoUpdate";
 import { applyLinuxRoundedCorners } from "./roundX11";
 import { installLinuxIcons, installLinuxTrayIcon } from "./icons";
@@ -73,6 +76,11 @@ function showPopover() {
 	roundPopover();
 	setTimeout(roundPopover, 120);
 	notifyAllDayRemindersOnOpen();
+	void maybeSyncGoogleCalendarOnAppOpen().then((result) => {
+		if (result && !result.error) {
+			emitUiEvent("google-calendar");
+		}
+	});
 }
 
 function isPinned() {

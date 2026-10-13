@@ -57,6 +57,7 @@ import {
 import {
 	disconnectGoogleCalendar,
 	syncGoogleCalendarEvents,
+	restartGoogleCalendarBackgroundSync,
 	startGoogleCalendarBackgroundSync,
 } from "./googleCalendar";
 import type { GoogleCalendarStatus } from "./googleAuth";
@@ -396,6 +397,9 @@ export function createReminderRPC(
 						partial.theme !== undefined || partial.themePack !== undefined;
 					if (themeTouched) {
 						onThemeChange?.();
+					}
+					if (partial.googleCalendarSyncIntervalMinutes !== undefined) {
+						restartGoogleCalendarBackgroundSync();
 					}
 					emitChanged(themeTouched ? "theme" : "settings");
 					return next;

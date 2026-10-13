@@ -122,14 +122,81 @@ export async function fetchAccessibleGoogleCalendars(
 	return items.filter((c) => c.id && !c.deleted && !c.hidden);
 }
 
+const GOOGLE_SYNC_TOKEN_KEY_PREFIX = "google_sync_token:";
+const APP_OPEN_SYNC_DEBOUNCE_MS = 5 * 60 * 1000;
+
+let lastAppOpenSyncAt = 0;
+
+interface GoogleEventsPage {
+	items: GoogleCalendarEventItem[];
+	nextPageToken?: string;
+	nextSyncToken?: string;
+}
+
+function readCalendarSyncToken(calendarId: string): string | null {
+	const row = db
+		.query("SELECT value FROM settings WHERE key = ?")
+		.get(`${GOOGLE_SYNC_TOKEN_KEY_PREFIX}${calendarId}`) as
+		| { value: string }
+		| undefined;
+	return row?.value ?? null;
+}
+
+function writeCalendarSyncToken(calendarId: string, token: string) {
+	db.query(
+		"INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+	).run(`${GOOGLE_SYNC_TOKEN_KEY_PREFIX}${calendarId}`, token);
+}
+
+function clearCalendarSyncToken(calendarId: string) {
+	db.query("DELETE FROM settings WHERE key = ?").run(
+		`${GOOGLE_SYNC_TOKEN_KEY_PREFIX}${calendarId}`,
+	);
+}
+
+export function clearGoogleCalendarSyncTokens() {
+	db.query("DELETE FROM settings WHERE key LIKE ?").run(
+		`${GOOGLE_SYNC_TOKEN_KEY_PREFIX}%`,
+	);
+}
+
+function deleteGoogleImportedByExternalId(externalId: string) {
+	db.query(
+		"DELETE FROM imported_events WHERE source = 'google' AND external_id = ?",
+	).run(externalId);
+}
+
+function importedStartsInWindow(startsAt: string, from: Date, to: Date): boolean {
+	const t = new Date(startsAt).getTime();
+	return t >= from.getTime() && t <= to.getTime();
+}
+
+async function fetchGoogleEventsPage(
+	accessToken: string,
+	calendarId: string,
+	params: URLSearchParams,
+): Promise<GoogleEventsPage> {
+	const encodedId = encodeURIComponent(calendarId);
+	const res = await fetch(
+		`https://www.googleapis.com/calendar/v3/calendars/${encodedId}/events?${params}`,
+		{ headers: { Authorization: `Bearer ${accessToken}` } },
+	);
+	if (!res.ok) {
+		const text = await res.text();
+		throw googleCalendarApiError(res.status, text);
+	}
+	return (await res.json()) as GoogleEventsPage;
+}
+
 async function fetchGoogleEventsForCalendar(
 	accessToken: string,
 	calendarId: string,
 	timeMin: string,
 	timeMax: string,
-): Promise<GoogleCalendarEventItem[]> {
+): Promise<{ items: GoogleCalendarEventItem[]; nextSyncToken: string | null }> {
 	const items: GoogleCalendarEventItem[] = [];
 	let pageToken: string | undefined;
+	let nextSyncToken: string | null = null;
 	do {
 		const params = new URLSearchParams({
 			timeMin,
@@ -139,23 +206,91 @@ async function fetchGoogleEventsForCalendar(
 			maxResults: "250",
 		});
 		if (pageToken) params.set("pageToken", pageToken);
+		const json = await fetchGoogleEventsPage(accessToken, calendarId, params);
+		items.push(...(json.items ?? []));
+		pageToken = json.nextPageToken;
+		if (json.nextSyncToken) nextSyncToken = json.nextSyncToken;
+	} while (pageToken);
+	return { items, nextSyncToken };
+}
+
+async function fetchGoogleEventsIncremental(
+	accessToken: string,
+	calendarId: string,
+	syncToken: string,
+): Promise<
+	| { kind: "ok"; items: GoogleCalendarEventItem[]; nextSyncToken: string | null }
+	| { kind: "reset" }
+> {
+	const items: GoogleCalendarEventItem[] = [];
+	let pageToken: string | undefined;
+	let token = syncToken;
+	let nextSyncToken: string | null = null;
+	do {
+		const params = new URLSearchParams({ maxResults: "250" });
+		if (pageToken) {
+			params.set("pageToken", pageToken);
+		} else {
+			params.set("syncToken", token);
+		}
 		const encodedId = encodeURIComponent(calendarId);
 		const res = await fetch(
 			`https://www.googleapis.com/calendar/v3/calendars/${encodedId}/events?${params}`,
 			{ headers: { Authorization: `Bearer ${accessToken}` } },
 		);
+		if (res.status === 410) {
+			return { kind: "reset" };
+		}
 		if (!res.ok) {
 			const text = await res.text();
 			throw googleCalendarApiError(res.status, text);
 		}
-		const json = (await res.json()) as {
-			items?: GoogleCalendarEventItem[];
-			nextPageToken?: string;
-		};
+		const json = (await res.json()) as GoogleEventsPage;
 		items.push(...(json.items ?? []));
 		pageToken = json.nextPageToken;
+		if (json.nextSyncToken) nextSyncToken = json.nextSyncToken;
 	} while (pageToken);
-	return items;
+	return { kind: "ok", items, nextSyncToken };
+}
+
+function decorateGoogleSummary(
+	mapped: UpsertImportedInput,
+	calLabel: string | undefined,
+	multiCalendar: boolean,
+) {
+	if (calLabel && multiCalendar) {
+		const title = mapped.summary;
+		if (!title.startsWith(`${calLabel}:`)) {
+			mapped.summary = `${calLabel}: ${title}`;
+		}
+	}
+}
+
+function collectGoogleEventChanges(
+	raw: GoogleCalendarEventItem[],
+	calendarId: string,
+	calLabel: string | undefined,
+	multiCalendar: boolean,
+	from: Date,
+	to: Date,
+): { upserts: UpsertImportedInput[]; ids: Set<string> } {
+	const upserts: UpsertImportedInput[] = [];
+	const ids = new Set<string>();
+	for (const ev of raw) {
+		if (!ev.id) continue;
+		const externalId = googleImportedExternalId(calendarId, ev.id);
+		if (ev.status === "cancelled") {
+			deleteGoogleImportedByExternalId(externalId);
+			continue;
+		}
+		const mapped = googleEventToUpsert(ev, calendarId);
+		if (!mapped) continue;
+		if (!importedStartsInWindow(mapped.startsAt, from, to)) continue;
+		decorateGoogleSummary(mapped, calLabel, multiCalendar);
+		ids.add(mapped.externalId);
+		upserts.push(mapped);
+	}
+	return { upserts, ids };
 }
 
 function pruneGoogleEventsNotInSet(externalIds: Set<string>, fromIso: string, toIso: string) {
@@ -199,27 +334,58 @@ export async function syncGoogleCalendarEvents(): Promise<{
 		const ids = new Set<string>();
 		const errors: string[] = [];
 
+		const multiCalendar = calendars.length > 1;
+		let anyFullSync = false;
 		for (const cal of calendars) {
 			try {
-				const raw = await fetchGoogleEventsForCalendar(
-					accessToken,
-					cal.id,
-					timeMin,
-					timeMax,
-				);
 				const calLabel = cal.summary?.trim();
-				for (const ev of raw) {
-					const mapped = googleEventToUpsert(ev, cal.id);
-					if (!mapped) continue;
-					if (calLabel && calendars.length > 1) {
-						const title = mapped.summary;
-						if (!title.startsWith(`${calLabel}:`)) {
-							mapped.summary = `${calLabel}: ${title}`;
-						}
+				let storedToken = readCalendarSyncToken(cal.id);
+				let raw: GoogleCalendarEventItem[] = [];
+				let nextSyncToken: string | null = null;
+				let didFullSync = false;
+
+				if (storedToken) {
+					const incremental = await fetchGoogleEventsIncremental(
+						accessToken,
+						cal.id,
+						storedToken,
+					);
+					if (incremental.kind === "reset") {
+						clearCalendarSyncToken(cal.id);
+						storedToken = null;
+					} else {
+						raw = incremental.items;
+						nextSyncToken = incremental.nextSyncToken;
 					}
-					ids.add(mapped.externalId);
-					upserts.push(mapped);
 				}
+
+				if (!storedToken) {
+					const full = await fetchGoogleEventsForCalendar(
+						accessToken,
+						cal.id,
+						timeMin,
+						timeMax,
+					);
+					raw = full.items;
+					nextSyncToken = full.nextSyncToken;
+					didFullSync = true;
+				}
+
+				if (nextSyncToken) {
+					writeCalendarSyncToken(cal.id, nextSyncToken);
+				}
+
+				const { upserts: calUpserts, ids: calIds } = collectGoogleEventChanges(
+					raw,
+					cal.id,
+					calLabel,
+					multiCalendar,
+					from,
+					to,
+				);
+				upserts.push(...calUpserts);
+				for (const id of calIds) ids.add(id);
+				if (didFullSync) anyFullSync = true;
 			} catch (e) {
 				const message = e instanceof Error ? e.message : String(e);
 				errors.push(message);
@@ -233,13 +399,16 @@ export async function syncGoogleCalendarEvents(): Promise<{
 			};
 		}
 		const { imported, updated } = upsertImportedEvents(db, upserts);
-		pruneGoogleEventsNotInSet(ids, fromIso, toIso);
+		if (anyFullSync) {
+			pruneGoogleEventsNotInSet(ids, fromIso, toIso);
+		}
 		setGoogleLastSyncAt(new Date().toISOString());
 		runSchedulerTick();
 		return { imported: imported + updated };
 	} catch (e) {
 		const message = e instanceof Error ? e.message : String(e);
 		if (isGoogleCalendarScopeError(message)) {
+			clearGoogleCalendarSyncTokens();
 			clearGoogleAuthStored();
 			return {
 				imported: 0,
@@ -251,19 +420,55 @@ export async function syncGoogleCalendarEvents(): Promise<{
 }
 
 export function disconnectGoogleCalendar() {
+	stopGoogleCalendarBackgroundSync();
+	clearGoogleCalendarSyncTokens();
 	clearGoogleAuthStored();
 	deleteImportedBySource(db, "google");
 	runSchedulerTick();
 }
 
+export async function maybeSyncGoogleCalendarOnAppOpen(): Promise<{
+	imported: number;
+	error?: string;
+} | null> {
+	if (!getGoogleAuthStored()?.refreshToken) return null;
+	const now = Date.now();
+	if (now - lastAppOpenSyncAt < APP_OPEN_SYNC_DEBOUNCE_MS) return null;
+	lastAppOpenSyncAt = now;
+	return syncGoogleCalendarEvents();
+}
+
 let syncInterval: ReturnType<typeof setInterval> | null = null;
 
-export function startGoogleCalendarBackgroundSync() {
-	if (syncInterval) return;
+function googleSyncIntervalMs(): number {
+	return getSettings().googleCalendarSyncIntervalMinutes * 60 * 1000;
+}
+
+function stopGoogleCalendarBackgroundSync() {
+	if (syncInterval) {
+		clearInterval(syncInterval);
+		syncInterval = null;
+	}
+}
+
+function scheduleGoogleCalendarBackgroundSync() {
+	stopGoogleCalendarBackgroundSync();
 	if (!getGoogleAuthStored()?.refreshToken) return;
-	void syncGoogleCalendarEvents();
 	syncInterval = setInterval(() => {
 		if (!getGoogleAuthStored()?.refreshToken) return;
 		void syncGoogleCalendarEvents();
-	}, 30 * 60 * 1000);
+	}, googleSyncIntervalMs());
+}
+
+export function restartGoogleCalendarBackgroundSync() {
+	scheduleGoogleCalendarBackgroundSync();
+}
+
+export function startGoogleCalendarBackgroundSync() {
+	if (!getGoogleAuthStored()?.refreshToken) return;
+	const hadInterval = syncInterval !== null;
+	scheduleGoogleCalendarBackgroundSync();
+	if (!hadInterval) {
+		void syncGoogleCalendarEvents();
+	}
 }
