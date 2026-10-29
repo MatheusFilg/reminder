@@ -61,14 +61,16 @@ function fromBundled(): GoogleOAuthClientConfig | null {
 	};
 }
 
-/** Dev: env ou .secrets. Release: credenciais embutidas no build (mantenedor). */
+/** Release com credenciais embutidas: sempre o client do build (evita JSON local quebrando token). */
 export function loadGoogleOAuthClientConfig(): GoogleOAuthClientConfig | null {
+	const bundled = fromBundled();
+	if (bundled) return bundled;
 	return (
 		fromEnv() ??
 		fromJsonFile(join(process.cwd(), ".secrets", "google-oauth-client.json")) ??
 		fromJsonFile(join(Utils.paths.userData, "google-oauth-client.json")) ??
 		fromJsonFile(join(homedir(), ".config", "reminder", "google-oauth-client.json")) ??
-		fromBundled()
+		null
 	);
 }
 

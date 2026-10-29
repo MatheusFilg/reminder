@@ -1,6 +1,6 @@
 import { Updater } from "electrobun/bun";
 
-/** Verifica atualização no canal stable e aplica em background (reinicia o app). */
+/** Baixa atualização no startup; não reinicia na hora (evita “abrir e o app reabrir”). */
 export async function maybeAutoUpdateOnStartup() {
 	try {
 		const local = await Updater.getLocalInfo();
@@ -11,7 +11,6 @@ export async function maybeAutoUpdateOnStartup() {
 		if (!check.updateAvailable) return;
 
 		await Updater.downloadUpdate();
-		await Updater.applyUpdate();
 	} catch (error) {
 		console.warn("[Reminder] Auto-update:", error);
 	}

@@ -49,6 +49,7 @@ describe("googleCalendar", () => {
 
 	test("detects invalid_grant for reconnect", () => {
 		expect(isGoogleInvalidGrantError("invalid_grant")).toBe(true);
+		expect(isGoogleInvalidGrantError("Bad Request")).toBe(true);
 		expect(isGoogleInvalidGrantError("Token HTTP 400")).toBe(false);
 	});
 

@@ -5,6 +5,7 @@ import {
 	getValidGoogleAccessToken,
 	GOOGLE_RECONNECT_HINT,
 	isGoogleInvalidGrantError,
+	isGoogleAuthReconnectError,
 	setGoogleLastSyncAt,
 } from "./googleAuth";
 import { deleteImportedBySource, upsertImportedEvents } from "./importedEvents";
@@ -491,7 +492,7 @@ async function syncGoogleCalendarEventsInner(options?: {
 			onGoogleCalendarSyncComplete?.(result);
 			return result;
 		}
-		if (isGoogleInvalidGrantError(message) || message.includes(GOOGLE_RECONNECT_HINT)) {
+		if (isGoogleAuthReconnectError(message) || message.includes(GOOGLE_RECONNECT_HINT)) {
 			clearGoogleCalendarSyncTokens();
 			clearGoogleAuthStored();
 		}

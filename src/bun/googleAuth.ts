@@ -98,11 +98,22 @@ export function getGoogleCalendarStatus(): GoogleCalendarStatus {
 }
 
 export function isGoogleInvalidGrantError(message: string): boolean {
-	return message.toLowerCase().includes("invalid_grant");
+	return isGoogleAuthReconnectError(message);
+}
+
+export function isGoogleAuthReconnectError(message: string): boolean {
+	const m = message.toLowerCase();
+	return (
+		m.includes("invalid_grant") ||
+		m.includes("invalid_request") ||
+		m.includes("bad request") ||
+		m.includes("unauthorized_client") ||
+		message.includes(GOOGLE_RECONNECT_HINT)
+	);
 }
 
 export const GOOGLE_RECONNECT_HINT =
-	"Acesso Google expirou ou foi revogado. Em Calendários: Desvincular (ícone link quebrado) e Conectar Google de novo.";
+	"Acesso Google inválido. Em Calendários: Desvincular e Conectar Google de novo. Se você criou ~/.config/reminder/google-oauth-client.json no passado, apague esse arquivo — o app stable usa só o OAuth do release.";
 
 interface TokenResponse {
 	access_token: string;
@@ -127,7 +138,7 @@ async function postToken(
 	};
 	if (!res.ok) {
 		const detail = json.error_description ?? json.error ?? `Token HTTP ${res.status}`;
-		if (isGoogleInvalidGrantError(detail)) {
+		if (isGoogleAuthReconnectError(detail)) {
 			throw new Error(GOOGLE_RECONNECT_HINT);
 		}
 		throw new Error(detail);
@@ -206,7 +217,7 @@ export async function getValidGoogleAccessToken(): Promise<string | null> {
 	} catch (e) {
 		const message = e instanceof Error ? e.message : String(e);
 		if (
-			isGoogleInvalidGrantError(message) ||
+			isGoogleAuthReconnectError(message) ||
 			message.includes(GOOGLE_RECONNECT_HINT)
 		) {
 			clearGoogleAuthStored();
@@ -242,42 +253,57 @@ export async function runGoogleOAuthConnect(
 	const authUrl = buildAuthUrl(config, state);
 
 	const code = await new Promise<string>((resolve, reject) => {
-		const server = Bun.serve({
-			port: GOOGLE_OAUTH_REDIRECT_PORT,
-			hostname: "127.0.0.1",
-			fetch(req) {
-				const url = new URL(req.url);
-				if (url.pathname !== "/oauth/callback") {
-					return new Response("Not found", { status: 404 });
-				}
-				const err = url.searchParams.get("error");
-				if (err) {
-					server.stop();
-					reject(new Error(err));
-					return new Response("Erro de autorização. Feche esta aba.", {
-						status: 400,
-					});
-				}
-				const gotState = url.searchParams.get("state");
-				const gotCode = url.searchParams.get("code");
-				if (gotState !== state || !gotCode) {
-					server.stop();
-					reject(new Error("Resposta OAuth inválida."));
-					return new Response("Resposta inválida.", { status: 400 });
-				}
-				server.stop();
-				resolve(gotCode);
-				return new Response(
-					"<html><body><p>Conta conectada. Volte ao Reminder.</p></body></html>",
-					{ headers: { "Content-Type": "text/html; charset=utf-8" } },
+		let server: ReturnType<typeof Bun.serve> | null = null;
+		try {
+			server = Bun.serve({
+				port: GOOGLE_OAUTH_REDIRECT_PORT,
+				hostname: "127.0.0.1",
+				fetch(req) {
+					const url = new URL(req.url);
+					if (url.pathname !== "/oauth/callback") {
+						return new Response("Not found", { status: 404 });
+					}
+					const err = url.searchParams.get("error");
+					if (err) {
+						server?.stop();
+						reject(new Error(err));
+						return new Response("Erro de autorização. Feche esta aba.", {
+							status: 400,
+						});
+					}
+					const gotState = url.searchParams.get("state");
+					const gotCode = url.searchParams.get("code");
+					if (gotState !== state || !gotCode) {
+						server?.stop();
+						reject(new Error("Resposta OAuth inválida."));
+						return new Response("Resposta inválida.", { status: 400 });
+					}
+					server?.stop();
+					resolve(gotCode);
+					return new Response(
+						"<html><body><p>Conta conectada. Volte ao Reminder.</p></body></html>",
+						{ headers: { "Content-Type": "text/html; charset=utf-8" } },
+					);
+				},
+			});
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : String(e);
+			if (msg.includes("EADDRINUSE") || msg.includes("in use")) {
+				reject(
+					new Error(
+						"Porta 5198 ocupada. Feche outras janelas do Reminder (ou reinicie o PC) e tente Conectar de novo.",
+					),
 				);
-			},
-		});
+				return;
+			}
+			reject(e instanceof Error ? e : new Error(msg));
+			return;
+		}
 
 		openBrowser(authUrl);
 
 		setTimeout(() => {
-			server.stop();
+			server?.stop();
 			reject(new Error("Tempo esgotado ao conectar Google (3 min)."));
 		}, 180_000);
 	});
