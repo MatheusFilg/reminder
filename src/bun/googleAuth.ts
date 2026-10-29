@@ -112,6 +112,7 @@ async function postToken(
 		method: "POST",
 		headers: { "Content-Type": "application/x-www-form-urlencoded" },
 		body: new URLSearchParams(body),
+		signal: AbortSignal.timeout(30_000),
 	});
 	const json = (await res.json()) as TokenResponse & { error?: string };
 	if (!res.ok) {

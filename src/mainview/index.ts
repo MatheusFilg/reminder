@@ -203,6 +203,7 @@ const state = {
 	snoozes: [] as SnoozePreset[],
 	googleCalendar: null as GoogleCalendarStatus | null,
 	googleSyncFeedback: null as { error: boolean; text: string } | null,
+	googleSyncBusy: false,
 	appVersion: "…" as string,
 	importedIgnoreRules: [] as ImportedIgnoreRule[],
 	modal: null as
@@ -1085,7 +1086,7 @@ function renderSettingsCalendars() {
 				}
         <div class="google-actions">
           <button type="button" class="google-icon-btn google-icon-btn-primary" id="google-connect" title="Conectar Google" aria-label="Conectar Google" ${!g?.configured || g?.connected ? "disabled" : ""}>${iconGoogle(20)}</button>
-          <button type="button" class="google-icon-btn" id="google-sync" title="Sincronizar agora" aria-label="Sincronizar agora" ${!g?.connected ? "disabled" : ""}>${icon("refreshCw", 18)}</button>
+          <button type="button" class="google-icon-btn" id="google-sync" title="Sincronizar agora" aria-label="Sincronizar agora" ${!g?.connected || state.googleSyncBusy ? "disabled" : ""}>${icon("refreshCw", 18)}</button>
           <button type="button" class="google-icon-btn google-icon-btn-danger" id="google-disconnect" title="Desvincular conta Google" aria-label="Desvincular conta Google" ${!g?.connected ? "disabled" : ""}>${icon("link2Off", 20)}</button>
         </div>
         ${
@@ -1337,25 +1338,35 @@ function bindMainEvents() {
 			});
 		});
 	document.getElementById("google-sync")?.addEventListener("click", async () => {
-		const status = document.getElementById("google-status");
-		if (status) {
-			status.hidden = false;
-			status.classList.remove("import-error");
-			status.textContent = "Sincronizando…";
-		}
-		const result = await electrobun.rpc!.request.syncGoogleCalendar({});
-		if (result.error) {
-			state.googleSyncFeedback = { error: true, text: result.error };
-		} else {
+		if (state.googleSyncBusy) return;
+		state.googleSyncBusy = true;
+		state.googleSyncFeedback = { error: false, text: "Sincronizando…" };
+		render();
+		try {
+			const result = await electrobun.rpc!.request.syncGoogleCalendar({});
+			if (result.error) {
+				state.googleSyncFeedback = { error: true, text: result.error };
+			} else {
+				state.googleSyncFeedback = {
+					error: false,
+					text:
+						result.imported > 0
+							? `${result.imported} evento(s) atualizado(s).`
+							: "Agenda sincronizada — nada novo no intervalo.",
+				};
+			}
+		} catch (e) {
 			state.googleSyncFeedback = {
-				error: false,
+				error: true,
 				text:
-					result.imported > 0
-						? `${result.imported} evento(s) atualizado(s).`
-						: "Agenda sincronizada — nada novo no intervalo.",
+					e instanceof Error
+						? e.message
+						: "Não foi possível sincronizar. Tente de novo.",
 			};
+		} finally {
+			state.googleSyncBusy = false;
+			await refresh();
 		}
-		await refresh();
 	});
 	document.getElementById("google-disconnect")?.addEventListener("click", () => {
 		openGoogleDisconnectModal();

@@ -465,7 +465,7 @@ export function createReminderRPC(
 				},
 				syncGoogleCalendar: async () => {
 					const result = await syncGoogleCalendarEvents({ forceFull: true });
-					emitChanged("google-calendar");
+					queueMicrotask(() => emitChanged("google-calendar"));
 					return result;
 				},
 				dismissImportedSimilar: ({ listId, mode }) => {

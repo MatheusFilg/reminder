@@ -104,7 +104,7 @@ export async function fetchAccessibleGoogleCalendars(
 			maxResults: "250",
 		});
 		if (pageToken) params.set("pageToken", pageToken);
-		const res = await fetch(
+		const res = await fetchWithTimeout(
 			`https://www.googleapis.com/calendar/v3/users/me/calendarList?${params}`,
 			{ headers: { Authorization: `Bearer ${accessToken}` } },
 		);
@@ -124,8 +124,13 @@ export async function fetchAccessibleGoogleCalendars(
 
 const GOOGLE_SYNC_TOKEN_KEY_PREFIX = "google_sync_token:";
 const APP_OPEN_SYNC_DEBOUNCE_MS = 5 * 60 * 1000;
+const GOOGLE_FETCH_TIMEOUT_MS = 45_000;
 
 let lastAppOpenSyncAt = 0;
+
+let syncTail: Promise<{ imported: number; error?: string }> = Promise.resolve({
+	imported: 0,
+});
 
 let onGoogleCalendarSyncComplete: ((result: {
 	imported: number;
@@ -136,6 +141,27 @@ export function setGoogleCalendarSyncCompleteListener(
 	listener: ((result: { imported: number; error?: string }) => void) | null,
 ) {
 	onGoogleCalendarSyncComplete = listener;
+}
+
+async function fetchWithTimeout(
+	url: string,
+	init: RequestInit,
+	ms = GOOGLE_FETCH_TIMEOUT_MS,
+): Promise<Response> {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), ms);
+	try {
+		return await fetch(url, { ...init, signal: controller.signal });
+	} catch (e) {
+		if (e instanceof Error && e.name === "AbortError") {
+			throw new Error(
+				"Google Agenda demorou demais para responder (timeout). Tente de novo.",
+			);
+		}
+		throw e;
+	} finally {
+		clearTimeout(timer);
+	}
 }
 
 interface GoogleEventsPage {
@@ -188,7 +214,7 @@ async function fetchGoogleEventsPage(
 	params: URLSearchParams,
 ): Promise<GoogleEventsPage> {
 	const encodedId = encodeURIComponent(calendarId);
-	const res = await fetch(
+	const res = await fetchWithTimeout(
 		`https://www.googleapis.com/calendar/v3/calendars/${encodedId}/events?${params}`,
 		{ headers: { Authorization: `Bearer ${accessToken}` } },
 	);
@@ -248,7 +274,7 @@ async function fetchGoogleEventsIncremental(
 			params.set("syncToken", token);
 		}
 		const encodedId = encodeURIComponent(calendarId);
-		const res = await fetch(
+		const res = await fetchWithTimeout(
 			`https://www.googleapis.com/calendar/v3/calendars/${encodedId}/events?${params}`,
 			{ headers: { Authorization: `Bearer ${accessToken}` } },
 		);
@@ -324,6 +350,19 @@ function pruneGoogleEventsNotInSet(externalIds: Set<string>, fromIso: string, to
 }
 
 export async function syncGoogleCalendarEvents(options?: {
+	forceFull?: boolean;
+}): Promise<{
+	imported: number;
+	error?: string;
+}> {
+	const run = syncTail
+		.catch(() => ({ imported: 0 as number, error: undefined as string | undefined }))
+		.then(() => syncGoogleCalendarEventsInner(options));
+	syncTail = run;
+	return run;
+}
+
+async function syncGoogleCalendarEventsInner(options?: {
 	forceFull?: boolean;
 }): Promise<{
 	imported: number;
@@ -427,7 +466,7 @@ export async function syncGoogleCalendarEvents(options?: {
 		setGoogleLastSyncAt(new Date().toISOString());
 		runSchedulerTick();
 		const result = { imported: imported + updated };
-		onGoogleCalendarSyncComplete?.(result);
+		queueMicrotask(() => onGoogleCalendarSyncComplete?.(result));
 		return result;
 	} catch (e) {
 		const message = e instanceof Error ? e.message : String(e);
