@@ -202,6 +202,7 @@ const state = {
 	alerts: [] as AlertPreset[],
 	snoozes: [] as SnoozePreset[],
 	googleCalendar: null as GoogleCalendarStatus | null,
+	googleSyncFeedback: null as { error: boolean; text: string } | null,
 	appVersion: "…" as string,
 	importedIgnoreRules: [] as ImportedIgnoreRule[],
 	modal: null as
@@ -1087,12 +1088,16 @@ function renderSettingsCalendars() {
           <button type="button" class="google-icon-btn" id="google-sync" title="Sincronizar agora" aria-label="Sincronizar agora" ${!g?.connected ? "disabled" : ""}>${icon("refreshCw", 18)}</button>
           <button type="button" class="google-icon-btn google-icon-btn-danger" id="google-disconnect" title="Desvincular conta Google" aria-label="Desvincular conta Google" ${!g?.connected ? "disabled" : ""}>${icon("link2Off", 20)}</button>
         </div>
-        <p class="import-status" id="google-status" hidden></p>
+        ${
+					state.googleSyncFeedback
+						? `<p class="import-status${state.googleSyncFeedback.error ? " import-error" : ""}" id="google-status">${escapeHtml(state.googleSyncFeedback.text)}</p>`
+						: `<p class="import-status" id="google-status" hidden></p>`
+				}
       </div>
       <div class="setting-card">
         <span class="setting-copy">
           <span class="setting-title">Sincronização automática</span>
-          <span class="setting-hint">Com a conta conectada, busca no intervalo escolhido e ao abrir o app (no máximo 1× a cada 5 min).</span>
+          <span class="setting-hint">Com a conta conectada, busca no intervalo escolhido mesmo com o app só na bandeja; ao abrir a janela, no máximo 1× a cada 5 min.</span>
         </span>
         <select
           id="google-sync-interval"
@@ -1335,18 +1340,20 @@ function bindMainEvents() {
 		const status = document.getElementById("google-status");
 		if (status) {
 			status.hidden = false;
+			status.classList.remove("import-error");
 			status.textContent = "Sincronizando…";
 		}
 		const result = await electrobun.rpc!.request.syncGoogleCalendar({});
-		if (status) {
-			status.hidden = false;
-			if (result.error) {
-				status.classList.add("import-error");
-				status.textContent = result.error;
-			} else {
-				status.classList.remove("import-error");
-				status.textContent = `${result.imported} evento(s) atualizado(s).`;
-			}
+		if (result.error) {
+			state.googleSyncFeedback = { error: true, text: result.error };
+		} else {
+			state.googleSyncFeedback = {
+				error: false,
+				text:
+					result.imported > 0
+						? `${result.imported} evento(s) atualizado(s).`
+						: "Agenda sincronizada — nada novo no intervalo.",
+			};
 		}
 		await refresh();
 	});

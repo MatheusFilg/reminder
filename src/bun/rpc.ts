@@ -464,7 +464,7 @@ export function createReminderRPC(
 					return { ok: true };
 				},
 				syncGoogleCalendar: async () => {
-					const result = await syncGoogleCalendarEvents();
+					const result = await syncGoogleCalendarEvents({ forceFull: true });
 					emitChanged("google-calendar");
 					return result;
 				},

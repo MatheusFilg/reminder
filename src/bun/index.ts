@@ -5,6 +5,7 @@ import { createReminderRPC } from "./rpc";
 import { notifyAllDayRemindersOnOpen, startScheduler } from "./scheduler";
 import {
 	maybeSyncGoogleCalendarOnAppOpen,
+	setGoogleCalendarSyncCompleteListener,
 	startGoogleCalendarBackgroundSync,
 } from "./googleCalendar";
 import { maybeAutoUpdateOnStartup } from "./autoUpdate";
@@ -261,6 +262,11 @@ void maybeAutoUpdateOnStartup();
 const settings = getSettings();
 setAutostart(settings.autostart);
 startScheduler();
+setGoogleCalendarSyncCompleteListener((result) => {
+	if (!result.error) {
+		emitUiEvent("google-calendar");
+	}
+});
 startGoogleCalendarBackgroundSync();
 if (settings.pinned) {
 	showPopover();

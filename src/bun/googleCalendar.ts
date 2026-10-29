@@ -127,6 +127,17 @@ const APP_OPEN_SYNC_DEBOUNCE_MS = 5 * 60 * 1000;
 
 let lastAppOpenSyncAt = 0;
 
+let onGoogleCalendarSyncComplete: ((result: {
+	imported: number;
+	error?: string;
+}) => void) | null = null;
+
+export function setGoogleCalendarSyncCompleteListener(
+	listener: ((result: { imported: number; error?: string }) => void) | null,
+) {
+	onGoogleCalendarSyncComplete = listener;
+}
+
 interface GoogleEventsPage {
 	items: GoogleCalendarEventItem[];
 	nextPageToken?: string;
@@ -227,7 +238,10 @@ async function fetchGoogleEventsIncremental(
 	let token = syncToken;
 	let nextSyncToken: string | null = null;
 	do {
-		const params = new URLSearchParams({ maxResults: "250" });
+		const params = new URLSearchParams({
+			maxResults: "250",
+			showDeleted: "true",
+		});
 		if (pageToken) {
 			params.set("pageToken", pageToken);
 		} else {
@@ -309,13 +323,21 @@ function pruneGoogleEventsNotInSet(externalIds: Set<string>, fromIso: string, to
 	}
 }
 
-export async function syncGoogleCalendarEvents(): Promise<{
+export async function syncGoogleCalendarEvents(options?: {
+	forceFull?: boolean;
+}): Promise<{
 	imported: number;
 	error?: string;
 }> {
 	const accessToken = await getValidGoogleAccessToken();
 	if (!accessToken) {
-		return { imported: 0, error: "Conta Google não conectada." };
+		const result = { imported: 0, error: "Conta Google não conectada." };
+		onGoogleCalendarSyncComplete?.(result);
+		return result;
+	}
+
+	if (options?.forceFull) {
+		clearGoogleCalendarSyncTokens();
 	}
 
 	const settings = getSettings();
@@ -404,18 +426,24 @@ export async function syncGoogleCalendarEvents(): Promise<{
 		}
 		setGoogleLastSyncAt(new Date().toISOString());
 		runSchedulerTick();
-		return { imported: imported + updated };
+		const result = { imported: imported + updated };
+		onGoogleCalendarSyncComplete?.(result);
+		return result;
 	} catch (e) {
 		const message = e instanceof Error ? e.message : String(e);
 		if (isGoogleCalendarScopeError(message)) {
 			clearGoogleCalendarSyncTokens();
 			clearGoogleAuthStored();
-			return {
+			const result = {
 				imported: 0,
 				error: `${message} Tokens antigos foram removidos — use Conectar Google de novo.`,
 			};
+			onGoogleCalendarSyncComplete?.(result);
+			return result;
 		}
-		return { imported: 0, error: message };
+		const result = { imported: 0, error: message };
+		onGoogleCalendarSyncComplete?.(result);
+		return result;
 	}
 }
 
