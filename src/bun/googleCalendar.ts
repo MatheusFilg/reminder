@@ -3,6 +3,8 @@ import {
 	clearGoogleAuthStored,
 	getGoogleAuthStored,
 	getValidGoogleAccessToken,
+	GOOGLE_RECONNECT_HINT,
+	isGoogleInvalidGrantError,
 	setGoogleLastSyncAt,
 } from "./googleAuth";
 import { deleteImportedBySource, upsertImportedEvents } from "./importedEvents";
@@ -368,7 +370,16 @@ async function syncGoogleCalendarEventsInner(options?: {
 	imported: number;
 	error?: string;
 }> {
-	const accessToken = await getValidGoogleAccessToken();
+	let accessToken: string | null;
+	try {
+		accessToken = await getValidGoogleAccessToken();
+	} catch (e) {
+		clearGoogleCalendarSyncTokens();
+		const message = e instanceof Error ? e.message : String(e);
+		const result = { imported: 0, error: message };
+		queueMicrotask(() => onGoogleCalendarSyncComplete?.(result));
+		return result;
+	}
 	if (!accessToken) {
 		const result = { imported: 0, error: "Conta Google não conectada." };
 		onGoogleCalendarSyncComplete?.(result);
@@ -479,6 +490,10 @@ async function syncGoogleCalendarEventsInner(options?: {
 			};
 			onGoogleCalendarSyncComplete?.(result);
 			return result;
+		}
+		if (isGoogleInvalidGrantError(message) || message.includes(GOOGLE_RECONNECT_HINT)) {
+			clearGoogleCalendarSyncTokens();
+			clearGoogleAuthStored();
 		}
 		const result = { imported: 0, error: message };
 		onGoogleCalendarSyncComplete?.(result);

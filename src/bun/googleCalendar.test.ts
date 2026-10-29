@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { isGoogleInvalidGrantError } from "./googleAuth";
 import {
 	googleEventToUpsert,
 	googleImportedExternalId,
@@ -44,6 +45,11 @@ describe("googleCalendar", () => {
 		expect(
 			googleEventToUpsert({ id: "x", status: "cancelled", start: { date: "2026-04-15" } }),
 		).toBeNull();
+	});
+
+	test("detects invalid_grant for reconnect", () => {
+		expect(isGoogleInvalidGrantError("invalid_grant")).toBe(true);
+		expect(isGoogleInvalidGrantError("Token HTTP 400")).toBe(false);
 	});
 
 	test("detects insufficient scope errors", () => {

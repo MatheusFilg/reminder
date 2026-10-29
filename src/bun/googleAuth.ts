@@ -97,6 +97,13 @@ export function getGoogleCalendarStatus(): GoogleCalendarStatus {
 	};
 }
 
+export function isGoogleInvalidGrantError(message: string): boolean {
+	return message.toLowerCase().includes("invalid_grant");
+}
+
+export const GOOGLE_RECONNECT_HINT =
+	"Acesso Google expirou ou foi revogado. Em Calendários: Desvincular (ícone link quebrado) e Conectar Google de novo.";
+
 interface TokenResponse {
 	access_token: string;
 	expires_in: number;
@@ -114,9 +121,16 @@ async function postToken(
 		body: new URLSearchParams(body),
 		signal: AbortSignal.timeout(30_000),
 	});
-	const json = (await res.json()) as TokenResponse & { error?: string };
+	const json = (await res.json()) as TokenResponse & {
+		error?: string;
+		error_description?: string;
+	};
 	if (!res.ok) {
-		throw new Error(json.error ?? `Token HTTP ${res.status}`);
+		const detail = json.error_description ?? json.error ?? `Token HTTP ${res.status}`;
+		if (isGoogleInvalidGrantError(detail)) {
+			throw new Error(GOOGLE_RECONNECT_HINT);
+		}
+		throw new Error(detail);
 	}
 	return json;
 }
@@ -184,10 +198,21 @@ export async function getValidGoogleAccessToken(): Promise<string | null> {
 	if (stored.accessToken && stored.expiresAt > Date.now()) {
 		return stored.accessToken;
 	}
-	const refreshed = await refreshGoogleAccessToken(stored.refreshToken);
-	writeSetting(SETTINGS_KEYS.accessToken, refreshed.accessToken);
-	writeSetting(SETTINGS_KEYS.expiresAt, String(refreshed.expiresAt));
-	return refreshed.accessToken;
+	try {
+		const refreshed = await refreshGoogleAccessToken(stored.refreshToken);
+		writeSetting(SETTINGS_KEYS.accessToken, refreshed.accessToken);
+		writeSetting(SETTINGS_KEYS.expiresAt, String(refreshed.expiresAt));
+		return refreshed.accessToken;
+	} catch (e) {
+		const message = e instanceof Error ? e.message : String(e);
+		if (
+			isGoogleInvalidGrantError(message) ||
+			message.includes(GOOGLE_RECONNECT_HINT)
+		) {
+			clearGoogleAuthStored();
+		}
+		throw e instanceof Error ? e : new Error(message);
+	}
 }
 
 function buildAuthUrl(config: GoogleOAuthClientConfig, state: string): string {
